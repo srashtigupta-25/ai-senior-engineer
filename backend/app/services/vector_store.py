@@ -46,7 +46,11 @@ def store_chunks(chunks, embeddings):
 
         metadatas.append(
             {
-                "file_path": str(chunk["file_path"])
+                "file_path": str(chunk["file_path"]),
+                "language": chunk.get("language", ""),
+                "start_line": chunk.get("start_line", 1),
+                "end_line": chunk.get("end_line", 1),
+                "symbols": ", ".join(chunk.get("symbols", [])[:20])
             }
         )
 

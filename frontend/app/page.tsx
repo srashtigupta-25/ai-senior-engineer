@@ -9,13 +9,24 @@ import {
   indexRepository,
 } from "@/lib/api";
 
+type RepositoryInfo = {
+  repository: {
+    repo_name: string;
+    repo_url: string;
+  };
+  files: number;
+  chunks: number;
+  status: string;
+};
+
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("https://github.com/pallets/flask");
   const [question, setQuestion] = useState("How does routing work in Flask?");
   const [activeTab, setActiveTab] = useState("chat");
   const [loading, setLoading] = useState(false);
-  const [repoInfo, setRepoInfo] = useState<any>(null);
+  const [repoInfo, setRepoInfo] = useState<RepositoryInfo | null>(null);
   const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState<string[]>([]);
   const [architecture, setArchitecture] = useState("");
   const [onboarding, setOnboarding] = useState("");
 
@@ -25,6 +36,10 @@ export default function Home() {
     try {
       const data = await indexRepository(repoUrl);
       setRepoInfo(data);
+      setAnswer("");
+      setSources([]);
+      setArchitecture("");
+      setOnboarding("");
     } catch {
       alert("Repository indexing failed. Please check your backend terminal.");
     }
@@ -38,6 +53,7 @@ export default function Home() {
     try {
       const data = await askRepository(question);
       setAnswer(data.answer);
+      setSources(data.sources || []);
     } catch {
       alert("Question failed. Make sure backend and Ollama are running.");
     }
@@ -160,7 +176,12 @@ export default function Home() {
                 {loading ? "Thinking..." : "Ask"}
               </button>
 
-              {answer && <MarkdownBlock content={answer} />}
+              {answer && (
+                <>
+                  <MarkdownBlock content={answer} />
+                  <SourcesList sources={sources} />
+                </>
+              )}
             </div>
           )}
 
@@ -203,11 +224,33 @@ export default function Home() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: any }) {
+function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
       <p className="text-sm text-slate-400">{label}</p>
       <p className="mt-1 text-2xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function SourcesList({ sources }: { sources: string[] }) {
+  if (sources.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950 p-4">
+      <p className="text-sm font-semibold text-slate-300">Retrieved sources</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {sources.slice(0, 16).map((source) => (
+          <span
+            key={source}
+            className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-300"
+          >
+            {source}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

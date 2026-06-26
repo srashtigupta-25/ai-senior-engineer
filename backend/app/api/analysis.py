@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.services.search_service import search_repository
 from app.services.llm_service import generate_answer
 from app.api.chat import build_context_from_results
+from app.services.repository_state import build_repository_profile
 
 
 router = APIRouter()
@@ -34,6 +35,7 @@ def architecture_report():
     ]
 
     all_context = []
+    seen_blocks = set()
 
     for query in architecture_queries:
         results = search_repository(
@@ -41,18 +43,23 @@ def architecture_report():
             top_k=30
         )
 
-        all_context.append(
-            build_context_from_results(
-                results,
-                query
-            )
+        context_block = build_context_from_results(
+            results,
+            query
         )
 
+        if context_block not in seen_blocks:
+            seen_blocks.add(context_block)
+            all_context.append(context_block)
+
     context = "\n\n".join(all_context)
+    repository_profile = build_repository_profile()
 
     answer = generate_answer(
         "Explain the architecture of this repository. First classify what kind of repository it is. Then explain exact source files, main components, entry points, data flow, API flow if present, storage layer if present, configuration, integrations, and how the system is organized internally.",
-        context
+        context,
+        repository_profile=repository_profile,
+        report_type="architecture"
     )
 
     return {
@@ -70,6 +77,7 @@ def onboarding_report():
     ]
 
     all_context = []
+    seen_blocks = set()
 
     for query in onboarding_queries:
         results = search_repository(
@@ -77,18 +85,23 @@ def onboarding_report():
             top_k=30
         )
 
-        all_context.append(
-            build_context_from_results(
-                results,
-                query
-            )
+        context_block = build_context_from_results(
+            results,
+            query
         )
 
+        if context_block not in seen_blocks:
+            seen_blocks.add(context_block)
+            all_context.append(context_block)
+
     context = "\n\n".join(all_context)
+    repository_profile = build_repository_profile()
 
     answer = generate_answer(
         "I am a new engineer joining this repository. First classify what this repository is. Then explain which exact files to read first, how the major components fit together, how to run or understand the project, and what I should learn first. Mention only file paths found in the context.",
-        context
+        context,
+        repository_profile=repository_profile,
+        report_type="onboarding"
     )
 
     return {

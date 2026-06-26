@@ -1,1 +1,4 @@
 backend/.env
+backend/.repository_state.json
+repositories/
+.DS_Store
