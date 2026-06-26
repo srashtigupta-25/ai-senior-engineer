@@ -133,6 +133,10 @@ def sanitize_answer(answer, repository_facts):
         cleaned_answer,
         repository_facts
     )
+    cleaned_answer = remove_unindexed_framework_file_claims(
+        cleaned_answer,
+        repository_facts
+    )
 
     repository_type_section = build_repository_type_section(repository_facts)
 
@@ -237,12 +241,14 @@ def remove_framework_hallucinations(answer, repository_facts):
 
     replacements = {
         r"src/flask/app\.py: This file contains the main application logic and defines the routes for the application\.": "src/flask/app.py: Implements the Flask application object, WSGI entry method, request dispatch, response finalization, and setup APIs.",
+        r"src/flask/app\.py: This file contains the main Flask framework source repository code, including the definition of the App class\.": "src/flask/app.py: Implements the Flask application object, WSGI entry method, request dispatch, response finalization, and setup APIs.",
         r"src/flask/app\.py \(found in the root directory\)": "src/flask/app.py",
         r"src/flask/views\.py \(found in the root directory\)": "src/flask/views.py",
         r"src/flask/sansio/README\.md \(found in the root directory\)": "src/flask/sansio/README.md",
         r"src/flask/views\.py: A collection of view functions that handle HTTP requests and return responses\.": "src/flask/views.py: Implements Flask's class-based view abstractions, not an application's own view functions.",
         r"src/flask/views\.py: This file contains view functions that handle HTTP requests\.": "src/flask/views.py: Implements Flask's class-based view abstractions, not an application's own view functions.",
         r"src/flask/views\.py file contains view functions that handle HTTP requests\.": "src/flask/views.py implements Flask's class-based view abstractions.",
+        r"src/flask/views\.py: This file contains the view functions that handle requests and return responses\.": "src/flask/views.py: Implements Flask's class-based view abstractions, not an application's own view functions.",
         r"The views in src/flask/views\.py are called when a route is matched\.": "User-defined view functions are registered through Flask's routing machinery; src/flask/views.py provides reusable class-based view support.",
         r"Creating a new route or view function\.": "Working on framework routing, dispatch, blueprint, or class-based view behavior.",
         r"Creating a new route for handling HTTP requests\.": "Working on framework routing, dispatch, blueprint, or class-based view behavior.",
@@ -264,6 +270,8 @@ def remove_framework_hallucinations(answer, repository_facts):
         r"The application code in src/flask/app\.py defines routes and view functions that handle HTTP requests\.": "src/flask/app.py implements the framework APIs that let users register routes and dispatch requests.",
         r"The AppContext object is responsible for managing the request context": "RequestContext manages request-specific state, while AppContext manages application-specific state",
         r"Flask creates an instance of AppContext which represents the current request\.": "Flask uses RequestContext for request-specific state and AppContext for application-specific state.",
+        r"Flask creates an AppContext object, which represents the current request context\.": "Flask uses RequestContext for request-specific state and AppContext for application-specific state.",
+        r"AppContext object, which represents the current request context": "RequestContext object, which represents request-specific state",
         r"This context is used to store information about the request, such as the URL, method, and query parameters\.": "Request information such as URL, method, and query parameters belongs to the request object inside RequestContext.",
         r"A request is made to the application, which triggers the creation of an instance of AppContext\.": "A request reaches a user-created Flask application object, and Flask creates/pushes request and application context objects as needed.",
         r"The AppContext instance is created and initialized with information from the WSGI environment\.": "RequestContext is built from the WSGI environment; AppContext tracks application-scoped state.",
@@ -271,6 +279,7 @@ def remove_framework_hallucinations(answer, repository_facts):
         r"When the context is popped off the stack, the request data is no longer available\.": "When the request/application contexts are popped, those context-local proxies are no longer bound.",
         r"AppContext class, which represents the current request": "RequestContext class, which represents the current request context",
         r"AppContext: Represents the current request and provides access to request data\.": "AppContext: Represents application-scoped context. RequestContext represents request-scoped state and request data.",
+        r"AppContext: This class represents the current request context and provides access to request data\.": "AppContext: Represents application-scoped context. RequestContext represents request-scoped state and request data.",
         r"app function in src/flask/app\.py, which creates an instance of the Flask class and returns it\.": "Flask class in src/flask/app.py, which users instantiate to create an application object.",
         r"run function in src/flask/cli\.py, which runs the Flask framework source repository using the WSGI protocol\.": "CLI commands in src/flask/cli.py, which locate and run user Flask applications during development.",
         r"shell command in src/flask/cli\.py, which provides an interactive shell for running Python code in the context of the Flask framework source repository\.": "shell command in src/flask/cli.py, which opens an interactive shell in an application context for a user Flask app.",
@@ -286,6 +295,41 @@ def remove_framework_hallucinations(answer, repository_facts):
             pattern,
             replacement,
             cleaned_answer
+        )
+
+    return cleaned_answer
+
+
+def remove_unindexed_framework_file_claims(answer, repository_facts):
+    repository_type = repository_facts["repository_type"].lower()
+
+    if "framework" not in repository_type and "library" not in repository_type:
+        return answer
+
+    indexed_files = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+
+    conventional_app_files = [
+        "urls.py",
+        "routes.py",
+        "controllers.py",
+        "models.py",
+        "tests/test_routes.py",
+    ]
+
+    cleaned_answer = answer
+
+    for file_path in conventional_app_files:
+        if file_path in indexed_files:
+            continue
+
+        cleaned_answer = re.sub(
+            rf"^.*{re.escape(file_path)}.*(?:\n|$)",
+            "",
+            cleaned_answer,
+            flags=re.IGNORECASE | re.MULTILINE
         )
 
     return cleaned_answer

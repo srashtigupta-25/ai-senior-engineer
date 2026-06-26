@@ -200,7 +200,7 @@ def build_framework_architecture_report(repository_facts: dict):
             "",
             "## Configuration And Runtime",
             "- Configuration belongs to the framework APIs and package metadata visible in the indexed files.",
-            "- Do not run a source file such as src/flask/app.py as an application; it is framework implementation code.",
+            "- Do not run a source file such as `src/flask/app.py` as an application; it is framework implementation code.",
             "",
             "## Risks Or Unknowns",
             "- Exact developer setup commands should come from README, pyproject metadata, or contributor documentation.",
@@ -255,7 +255,7 @@ def build_framework_onboarding_guide(repository_facts: dict):
             "",
             "## Local Setup",
             "- Use the repository's README, pyproject metadata, or contributor documentation for exact install and test commands.",
-            "- Do not run framework implementation files such as src/flask/app.py as an application entry point.",
+            "- Do not run framework implementation files such as `src/flask/app.py` as an application entry point.",
             "- After setup, run the repository's test command from documented project metadata or contributor docs.",
             "",
             "## Mental Model",
@@ -264,7 +264,7 @@ def build_framework_onboarding_guide(repository_facts: dict):
             "- Application context and request context are different concepts: application context holds app-scoped state, while request context holds request-scoped state.",
             "",
             "## Common Tasks",
-            "- Update framework internals in src/ modules and add matching regression tests under tests/.",
+            "- Update framework internals in `src/` modules and add matching regression tests under `tests/`.",
             "- Investigate routing, context, blueprint, CLI, templating, JSON, session, or testing behavior by starting from the matching source module and test file.",
             "- Preserve public API and extension compatibility when changing behavior used by downstream applications.",
             "",
@@ -316,9 +316,9 @@ def describe_file(file_path: str):
 
     for marker, description in descriptions:
         if marker in file_path:
-            return f"{file_path}: {description}"
+            return f"`{file_path}`: {description}"
 
-    return f"{file_path}: Indexed source file to inspect for implementation details."
+    return f"`{file_path}`: Indexed source file to inspect for implementation details."
 
 
 def format_bullets(items: list[str]):
