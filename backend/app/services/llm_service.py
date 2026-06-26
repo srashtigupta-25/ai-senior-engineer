@@ -97,6 +97,9 @@ def get_framework_rules(repository_facts):
 - This repository is framework or library source code, not a user application built with it.
 - Do not say users should run python app.py unless that exact file and command are present.
 - Do not describe views.py as user route handlers; if src/flask/views.py exists, it is framework implementation code for class-based views.
+- Do not invent models.py, controllers.py, or user app view modules.
+- Do not say src/flask/app.py defines routes for this repository. It implements the Flask application object and request dispatch machinery.
+- Do not say AppContext represents a single request. AppContext is application context; RequestContext is request context.
 - Onboarding should focus on package metadata, src/ implementation modules, tests, and framework extension points.
 - Architecture should describe framework internals: application object, context lifecycle, routing, dispatch, blueprints, CLI, templating, JSON, testing, and WSGI integration when those files are present.
 """
@@ -117,6 +120,10 @@ def sanitize_answer(answer, repository_facts):
         repository_facts
     )
     cleaned_answer = correct_framework_language(
+        cleaned_answer,
+        repository_facts
+    )
+    cleaned_answer = remove_framework_hallucinations(
         cleaned_answer,
         repository_facts
     )
@@ -186,6 +193,48 @@ def correct_framework_language(answer, repository_facts):
         r"\bFlask application\b": "Flask framework source repository",
         r"\bFlask-based web application\b": "Flask framework source repository",
         r"\bPython-based web application repository\b": "Python framework/library repository",
+    }
+
+    for pattern, replacement in replacements.items():
+        cleaned_answer = re.sub(
+            pattern,
+            replacement,
+            cleaned_answer
+        )
+
+    return cleaned_answer
+
+
+def remove_framework_hallucinations(answer, repository_facts):
+    repository_type = repository_facts["repository_type"].lower()
+
+    if "framework" not in repository_type and "library" not in repository_type:
+        return answer
+
+    cleaned_answer = answer
+
+    bad_line_patterns = [
+        r"^.*models\.py.*(?:\n|$)",
+        r"^.*python\s+src/flask/app\.py.*(?:\n|$)",
+        r"^.*python\s+app\.py.*(?:\n|$)",
+        r"^.*production deployment strategy.*(?:\n|$)",
+    ]
+
+    for pattern in bad_line_patterns:
+        cleaned_answer = re.sub(
+            pattern,
+            "",
+            cleaned_answer,
+            flags=re.IGNORECASE | re.MULTILINE
+        )
+
+    replacements = {
+        r"src/flask/app\.py: This file contains the main application logic and defines the routes for the application\.": "src/flask/app.py: Implements the Flask application object, WSGI entry method, request dispatch, response finalization, and setup APIs.",
+        r"src/flask/views\.py: A collection of view functions that handle HTTP requests and return responses\.": "src/flask/views.py: Implements Flask's class-based view abstractions, not an application's own view functions.",
+        r"The AppContext object is responsible for managing the request context": "RequestContext manages request-specific state, while AppContext manages application-specific state",
+        r"AppContext class, which represents the current request": "RequestContext class, which represents the current request context",
+        r"A request is made to the Flask framework source repository": "A request reaches a Flask application object created by a user of the framework",
+        r"request is made to the Flask framework source repository": "request reaches a Flask application object created by a user of the framework",
     }
 
     for pattern, replacement in replacements.items():
@@ -274,15 +323,19 @@ Classify the repository and justify the classification from files.
 
 ## Architecture Summary
 Explain the system in practical terms.
+For framework/library repositories, explain the framework internals and public API, not a sample application built with the framework.
 
 ## Main Components
 List the major components, their exact files, and responsibilities.
+Do not list models, controllers, or app-specific view functions unless exact files appear in context.
 
 ## Entry Points
 Explain startup or public entry points. If none are visible, say so.
+For framework/library repositories, entry points can include package exports, CLI modules, WSGI callable methods, and public classes.
 
 ## Data And Control Flow
 Explain request, command, library, or runtime flow step by step, depending on the repository type.
+For Flask-like framework repositories, distinguish the framework's application object from user applications built with it.
 
 ## Storage And External Integrations
 Describe persistence, vector stores, databases, APIs, models, or external services only when supported by files.
@@ -307,12 +360,15 @@ Classify the repository and explain why.
 
 ## First Day Reading Path
 Give an ordered list of exact files to read first and what each teaches.
+For framework/library repositories, prioritize README, package metadata, src/ public API files, core implementation modules, and tests.
 
 ## Local Setup
 Explain how to install and run the project using only commands or files visible in context. If a command is inferred from package files, say it is inferred.
+Do not tell the user to run python app.py for a framework/library unless that exact command is documented in context.
 
 ## Mental Model
 Explain how the main parts fit together.
+For framework/library repositories, explain how consumers call into the library and how the library handles the work internally.
 
 ## Common Tasks
 Describe practical tasks a new engineer might do and which files they would touch.

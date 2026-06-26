@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.services.search_service import search_repository
 from app.services.llm_service import generate_answer
 from app.api.chat import build_context_from_results
-from app.services.repository_state import build_repository_profile
+from app.services.repository_state import build_repository_profile, get_repository_facts
 
 
 router = APIRouter()
@@ -23,16 +23,10 @@ def repository_overview():
 
 @router.get("/architecture")
 def architecture_report():
-    architecture_queries = [
-        "README project structure main source package entry point",
-        "application startup initialization configuration main class",
-        "routes endpoints handlers controllers services middleware dispatch",
-        "database models schema repository storage persistence",
-        "frontend components pages api client state management",
-        "authentication authorization security session user flow",
-        "background jobs workers queues scheduled tasks",
-        "external APIs integrations webhooks third party services"
-    ]
+    repository_facts = get_repository_facts()
+    architecture_queries = build_architecture_queries(
+        repository_facts["repository_type"]
+    )
 
     all_context = []
     seen_blocks = set()
@@ -69,12 +63,10 @@ def architecture_report():
 
 @router.get("/onboarding")
 def onboarding_report():
-    onboarding_queries = [
-        "README setup installation project structure",
-        "main source package entry point initialization configuration",
-        "routes controllers services models database",
-        "tests examples development workflow contributing"
-    ]
+    repository_facts = get_repository_facts()
+    onboarding_queries = build_onboarding_queries(
+        repository_facts["repository_type"]
+    )
 
     all_context = []
     seen_blocks = set()
@@ -107,3 +99,47 @@ def onboarding_report():
     return {
         "guide": answer
     }
+
+
+def build_architecture_queries(repository_type: str):
+    normalized_type = repository_type.lower()
+
+    if "framework" in normalized_type or "library" in normalized_type:
+        return [
+            "README pyproject package metadata framework library structure",
+            "src public API core classes initialization lifecycle dispatch",
+            "src request context app context globals lifecycle",
+            "src routing url rule map dispatch request response",
+            "src blueprints scaffold views templating json sessions cli testing",
+            "wsgi middleware werkzeug integration wrappers sansio",
+        ]
+
+    return [
+        "README project structure main source package entry point",
+        "application startup initialization configuration main class",
+        "routes endpoints handlers controllers services middleware dispatch",
+        "database models schema repository storage persistence",
+        "frontend components pages api client state management",
+        "authentication authorization security session user flow",
+        "background jobs workers queues scheduled tasks",
+        "external APIs integrations webhooks third party services"
+    ]
+
+
+def build_onboarding_queries(repository_type: str):
+    normalized_type = repository_type.lower()
+
+    if "framework" in normalized_type or "library" in normalized_type:
+        return [
+            "README pyproject contributing development setup testing",
+            "src public API package exports application object lifecycle",
+            "src request context routing blueprints cli templating json sessions",
+            "tests framework behavior regression fixtures development workflow",
+        ]
+
+    return [
+        "README setup installation project structure",
+        "main source package entry point initialization configuration",
+        "routes controllers services models database",
+        "tests examples development workflow contributing"
+    ]
