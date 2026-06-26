@@ -43,7 +43,7 @@ def architecture_report():
             top_k=30
         )
 
-        context_block = build_context_from_results(
+        context_block, _selected_sources = build_context_from_results(
             results,
             query
         )
@@ -85,7 +85,7 @@ def onboarding_report():
             top_k=30
         )
 
-        context_block = build_context_from_results(
+        context_block, _selected_sources = build_context_from_results(
             results,
             query
         )

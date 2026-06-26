@@ -112,12 +112,22 @@ def sanitize_answer(answer, repository_facts):
         cleaned_answer,
         repository_facts["files"]
     )
+    cleaned_answer = expand_preferred_source_basenames(
+        cleaned_answer,
+        repository_facts
+    )
+    cleaned_answer = correct_framework_language(
+        cleaned_answer,
+        repository_facts
+    )
 
     repository_type_section = build_repository_type_section(repository_facts)
 
-    if re.search(r"^##\s+Repository Type\b", cleaned_answer, flags=re.MULTILINE):
+    repository_heading_pattern = r"^(?:#{1,3}\s*)?Repository Type\b.*?(?=^(?:#{1,3}\s*)?(?:Direct Answer|Architecture Summary|First Day Reading Path|Summary|Relevant Files|Main Components|Execution Flow|Entry Points|Local Setup)\b|^##\s+|\Z)"
+
+    if re.search(repository_heading_pattern, cleaned_answer, flags=re.MULTILINE | re.DOTALL):
         return re.sub(
-            r"^##\s+Repository Type\b.*?(?=^##\s+|\Z)",
+            repository_heading_pattern,
             repository_type_section + "\n\n",
             cleaned_answer,
             count=1,
@@ -162,6 +172,32 @@ def remove_local_clone_prefixes(answer, repo_name):
     return cleaned_answer
 
 
+def correct_framework_language(answer, repository_facts):
+    repository_type = repository_facts["repository_type"].lower()
+
+    if "framework" not in repository_type and "library" not in repository_type:
+        return answer
+
+    cleaned_answer = answer
+
+    replacements = {
+        r"\ba Flask application\b": "the Flask framework source repository",
+        r"\bA Flask application\b": "The Flask framework source repository",
+        r"\bFlask application\b": "Flask framework source repository",
+        r"\bFlask-based web application\b": "Flask framework source repository",
+        r"\bPython-based web application repository\b": "Python framework/library repository",
+    }
+
+    for pattern, replacement in replacements.items():
+        cleaned_answer = re.sub(
+            pattern,
+            replacement,
+            cleaned_answer
+        )
+
+    return cleaned_answer
+
+
 def expand_unique_basenames(answer, files):
     basename_to_paths = {}
 
@@ -185,6 +221,43 @@ def expand_unique_basenames(answer, files):
         cleaned_answer = re.sub(
             rf"(?<![\w/.-]){re.escape(basename)}(?![\w/.-])",
             full_path,
+            cleaned_answer
+        )
+
+    return cleaned_answer
+
+
+def expand_preferred_source_basenames(answer, repository_facts):
+    repository_type = repository_facts["repository_type"].lower()
+
+    if "framework" not in repository_type and "library" not in repository_type:
+        return answer
+
+    basename_to_paths = {}
+
+    for file in repository_facts["files"]:
+        path = file.get("file_path", "")
+        basename = path.split("/")[-1]
+
+        if basename:
+            basename_to_paths.setdefault(basename, set()).add(path)
+
+    cleaned_answer = answer
+
+    for basename, paths in basename_to_paths.items():
+        preferred_paths = sorted(
+            path
+            for path in paths
+            if path.startswith("src/") and "/tests/" not in path and not path.startswith("tests/")
+        )
+
+        if not preferred_paths:
+            continue
+
+        preferred_path = preferred_paths[0]
+        cleaned_answer = re.sub(
+            rf"(?<![\w/.-]){re.escape(basename)}(?![\w/.-])",
+            preferred_path,
             cleaned_answer
         )
 

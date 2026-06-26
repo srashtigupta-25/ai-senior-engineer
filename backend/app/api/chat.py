@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.services.search_service import search_repository
 from app.services.llm_service import generate_answer
-from app.services.repository_state import build_repository_profile
+from app.services.repository_state import build_repository_profile, get_repository_facts
 
 
 router = APIRouter()
@@ -52,6 +52,7 @@ def question_needs_tests(question: str):
 
 def build_context_from_results(results, question: str = ""):
     context_blocks = []
+    selected_sources = []
 
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
@@ -88,12 +89,19 @@ def build_context_from_results(results, question: str = ""):
     if question_needs_tests(question):
         selected_results = paired_results[:12]
     else:
-        selected_results = high_signal_results[:12]
+        selected_results = sorted(
+            high_signal_results,
+            key=lambda item: source_priority(item["file_path"])
+        )[:12]
 
         if len(selected_results) < 6:
-            selected_results = selected_results + low_signal_results[: 6 - len(selected_results)]
+            selected_results = selected_results + sorted(
+                low_signal_results,
+                key=lambda item: source_priority(item["file_path"])
+            )[: 6 - len(selected_results)]
 
     for item in selected_results:
+        selected_sources.append(item["file_path"])
         line_range = f"{item['start_line']}-{item['end_line']}"
         symbol_text = f"\nDetected Symbols: {item['symbols']}" if item["symbols"] else ""
 
@@ -111,7 +119,25 @@ Code Snippet:
 """
         )
 
-    return "\n\n".join(context_blocks)
+    return "\n\n".join(context_blocks), selected_sources
+
+
+def source_priority(file_path: str):
+    normalized_path = normalize_path(file_path)
+
+    if normalized_path.startswith("src/"):
+        return 0, normalized_path
+
+    if normalized_path in {"README.md", "pyproject.toml", "package.json"}:
+        return 1, normalized_path
+
+    if normalized_path.startswith("app/") or normalized_path.startswith("backend/") or normalized_path.startswith("frontend/"):
+        return 2, normalized_path
+
+    if is_low_signal_path(normalized_path):
+        return 9, normalized_path
+
+    return 4, normalized_path
 
 
 def build_context_for_question(question: str):
@@ -149,12 +175,13 @@ def build_context_for_question(question: str):
     return build_context_from_results(
         merged_results,
         question
-    ), merged_results
+    )
 
 
 def build_search_queries(question: str):
     lowered_question = question.lower()
     queries = [question]
+    repository_facts = get_repository_facts()
 
     if "internally" in lowered_question or "how does" in lowered_question or "architecture" in lowered_question:
         queries.extend(
@@ -168,8 +195,18 @@ def build_search_queries(question: str):
     if "flask" in lowered_question:
         queries.extend(
             [
+                "src flask app Flask wsgi_app full_dispatch_request dispatch_request finalize_request",
+                "src flask ctx request_context app_context globals lifecycle",
                 "Flask class wsgi_app full_dispatch_request dispatch_request finalize_request",
                 "route add_url_rule url_map request_context app_context blueprint",
+            ]
+        )
+
+    if "framework" in repository_facts["repository_type"].lower() or "library" in repository_facts["repository_type"].lower():
+        queries.extend(
+            [
+                "src package public API core classes lifecycle dispatch configuration",
+                "pyproject README package metadata framework library architecture",
             ]
         )
 
@@ -183,7 +220,7 @@ def build_search_queries(question: str):
 def ask_repository(payload: dict):
     question = payload["question"]
 
-    context, results = build_context_for_question(
+    context, selected_sources = build_context_for_question(
         question
     )
 
@@ -196,12 +233,7 @@ def ask_repository(payload: dict):
         report_type="question"
     )
 
-    sources = [
-        normalize_path(metadata.get("file_path", "unknown file"))
-        for metadata in results["metadatas"][0]
-    ]
-
-    unique_sources = list(dict.fromkeys(sources))
+    unique_sources = list(dict.fromkeys(selected_sources))
 
     return {
         "answer": answer,
