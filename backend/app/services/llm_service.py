@@ -100,6 +100,8 @@ def get_framework_rules(repository_facts):
 - Do not invent models.py, controllers.py, or user app view modules.
 - Do not say src/flask/app.py defines routes for this repository. It implements the Flask application object and request dispatch machinery.
 - Do not say AppContext represents a single request. AppContext is application context; RequestContext is request context.
+- Do not mention requirements.txt unless it appears in the repository profile or context.
+- Do not invent clone URLs, production deployment questions, --config options, or database/API integration tasks.
 - Onboarding should focus on package metadata, src/ implementation modules, tests, and framework extension points.
 - Architecture should describe framework internals: application object, context lifecycle, routing, dispatch, blueprints, CLI, templating, JSON, testing, and WSGI integration when those files are present.
 """
@@ -116,6 +118,10 @@ def sanitize_answer(answer, repository_facts):
         repository_facts["files"]
     )
     cleaned_answer = expand_preferred_source_basenames(
+        cleaned_answer,
+        repository_facts
+    )
+    cleaned_answer = expand_partial_source_paths(
         cleaned_answer,
         repository_facts
     )
@@ -217,6 +223,7 @@ def remove_framework_hallucinations(answer, repository_facts):
         r"^.*models\.py.*(?:\n|$)",
         r"^.*python\s+src/flask/app\.py.*(?:\n|$)",
         r"^.*python\s+app\.py.*(?:\n|$)",
+        r"^.*--config command-line option.*(?:\n|$)",
         r"^.*production deployment strategy.*(?:\n|$)",
     ]
 
@@ -230,7 +237,26 @@ def remove_framework_hallucinations(answer, repository_facts):
 
     replacements = {
         r"src/flask/app\.py: This file contains the main application logic and defines the routes for the application\.": "src/flask/app.py: Implements the Flask application object, WSGI entry method, request dispatch, response finalization, and setup APIs.",
+        r"src/flask/app\.py \(found in the root directory\)": "src/flask/app.py",
+        r"src/flask/views\.py \(found in the root directory\)": "src/flask/views.py",
+        r"src/flask/sansio/README\.md \(found in the root directory\)": "src/flask/sansio/README.md",
         r"src/flask/views\.py: A collection of view functions that handle HTTP requests and return responses\.": "src/flask/views.py: Implements Flask's class-based view abstractions, not an application's own view functions.",
+        r"src/flask/views\.py file contains view functions that handle HTTP requests\.": "src/flask/views.py implements Flask's class-based view abstractions.",
+        r"The views in src/flask/views\.py are called when a route is matched\.": "User-defined view functions are registered through Flask's routing machinery; src/flask/views.py provides reusable class-based view support.",
+        r"Creating a new route or view function\.": "Working on framework routing, dispatch, blueprint, or class-based view behavior.",
+        r"Modifying existing code in src/flask/app\.py or src/flask/views\.py\.": "Modifying framework internals in files such as src/flask/app.py, src/flask/sansio/app.py, src/flask/blueprints.py, or src/flask/views.py.",
+        r"The architecture revolves around the concept of \"blueprints,\"": "Blueprints are one major organizational feature, but the architecture also centers on the Flask application object, request and application contexts, routing, dispatch, CLI, templating, and JSON support.",
+        r"blueprints,\" which are essentially routes for handling HTTP requests\.": "blueprints, which group routes and related setup behavior before registration on an application.",
+        r"which are essentially routes for handling HTTP requests\.": "which group routes and related setup behavior before registration on an application.",
+        r"support\. which group routes and related setup behavior before registration on an application\.": "support. Blueprints group routes and related setup behavior before registration on an application.",
+        r"Blueprints can be registered with the application, allowing developers to define custom routes and handlers\.": "Blueprints are registered on an application and contribute URL rules, hooks, static/template configuration, and related setup behavior.",
+        r"The framework also includes support for templates, internationalization, and debugging tools\.": "The framework also includes template integration, debugging helpers, JSON support, session support, CLI behavior, and testing utilities when those modules are present.",
+        r"Run pip install -r requirements\.txt to install dependencies\.": "Setup commands are not visible in the retrieved context; check project metadata such as pyproject.toml and contributor documentation.",
+        r"Install dependencies: pip install -r requirements\.txt\.": "Setup commands are not visible in the retrieved context; check project metadata such as pyproject.toml and contributor documentation.",
+        r"The data flow in this repository is primarily focused on handling HTTP requests and responses\.": "The runtime flow is primarily focused on how a user-created Flask application object handles HTTP requests and responses.",
+        r"The control flow is managed by the Flask class, which routes requests to the appropriate blueprint\.": "Control flow is managed by the Flask application object, URL map/rules, request context, dispatch methods, and optional blueprint-registered behavior.",
+        r"src/flask/app\.py file is the entry point for the Flask framework source repository\.": "src/flask/app.py implements the main Flask application class and WSGI dispatch behavior.",
+        r"The application code in src/flask/app\.py defines routes and view functions that handle HTTP requests\.": "src/flask/app.py implements the framework APIs that let users register routes and dispatch requests.",
         r"The AppContext object is responsible for managing the request context": "RequestContext manages request-specific state, while AppContext manages application-specific state",
         r"AppContext class, which represents the current request": "RequestContext class, which represents the current request context",
         r"A request is made to the Flask framework source repository": "A request reaches a Flask application object created by a user of the framework",
@@ -313,6 +339,34 @@ def expand_preferred_source_basenames(answer, repository_facts):
     return cleaned_answer
 
 
+def expand_partial_source_paths(answer, repository_facts):
+    repository_type = repository_facts["repository_type"].lower()
+
+    if "framework" not in repository_type and "library" not in repository_type:
+        return answer
+
+    cleaned_answer = answer
+
+    for file in repository_facts["files"]:
+        full_path = file.get("file_path", "")
+
+        if not full_path.startswith("src/"):
+            continue
+
+        partial_path = full_path.removeprefix("src/")
+
+        if partial_path == full_path:
+            continue
+
+        cleaned_answer = re.sub(
+            rf"(?<![\w/.-]){re.escape(partial_path)}(?![\w/.-])",
+            full_path,
+            cleaned_answer
+        )
+
+    return cleaned_answer
+
+
 def get_format_instructions(report_type):
     if report_type == "architecture":
         return """
@@ -365,6 +419,7 @@ For framework/library repositories, prioritize README, package metadata, src/ pu
 ## Local Setup
 Explain how to install and run the project using only commands or files visible in context. If a command is inferred from package files, say it is inferred.
 Do not tell the user to run python app.py for a framework/library unless that exact command is documented in context.
+For framework/library repositories, prefer development setup and test commands over "run the app" instructions. If commands are not visible, say setup commands are not visible in the retrieved context.
 
 ## Mental Model
 Explain how the main parts fit together.

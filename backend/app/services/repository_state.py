@@ -81,7 +81,7 @@ def get_repository_facts():
     }
 
 
-def build_repository_profile(max_files: int = 80):
+def build_repository_profile(max_files: int = 140):
     state = load_repository_state()
 
     if not state:
