@@ -14,7 +14,8 @@ LOW_SIGNAL_PATH_PARTS = [
     "docs",
     "examples",
     "scripts",
-    ".github"
+    ".github",
+    "changelog.md"
 ]
 
 
@@ -23,7 +24,7 @@ def normalize_path(file_path: str):
 
 
 def is_low_signal_path(file_path: str):
-    normalized_path = normalize_path(file_path).strip("/")
+    normalized_path = normalize_path(file_path).strip("/").lower()
     path_parts = normalized_path.split("/")
 
     return any(
@@ -53,6 +54,7 @@ def question_needs_tests(question: str):
 def build_context_from_results(results, question: str = ""):
     context_blocks = []
     selected_sources = []
+    repository_facts = get_repository_facts()
 
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
@@ -91,13 +93,13 @@ def build_context_from_results(results, question: str = ""):
     else:
         selected_results = sorted(
             high_signal_results,
-            key=lambda item: source_priority(item["file_path"])
+            key=lambda item: source_priority(item["file_path"], repository_facts)
         )[:12]
 
         if len(selected_results) < 6:
             selected_results = selected_results + sorted(
                 low_signal_results,
-                key=lambda item: source_priority(item["file_path"])
+                key=lambda item: source_priority(item["file_path"], repository_facts)
             )[: 6 - len(selected_results)]
 
     for item in selected_results:
@@ -122,10 +124,22 @@ Code Snippet:
     return "\n\n".join(context_blocks), selected_sources
 
 
-def source_priority(file_path: str):
+def source_priority(file_path: str, repository_facts: dict | None = None):
     normalized_path = normalize_path(file_path)
+    source_roots = []
+
+    if repository_facts:
+        source_roots = repository_facts.get("source_roots", [])
 
     if normalized_path.startswith("src/"):
+        return 0, normalized_path
+
+    normalized_roots = [
+        root.lower()
+        for root in source_roots
+    ]
+
+    if any(normalized_path.lower().startswith(f"{root}/") for root in normalized_roots):
         return 0, normalized_path
 
     if normalized_path in {"README.md", "pyproject.toml", "package.json"}:
@@ -182,6 +196,8 @@ def build_search_queries(question: str):
     lowered_question = question.lower()
     queries = [question]
     repository_facts = get_repository_facts()
+    repo_name = repository_facts["repo_name"]
+    source_roots = repository_facts.get("source_roots", [])
 
     if "internally" in lowered_question or "how does" in lowered_question or "architecture" in lowered_question:
         queries.extend(
@@ -207,6 +223,24 @@ def build_search_queries(question: str):
             [
                 "src package public API core classes lifecycle dispatch configuration",
                 "pyproject README package metadata framework library architecture",
+            ]
+        )
+
+        for root in source_roots:
+            queries.extend(
+                [
+                    f"{root} client request response transport send build handle",
+                    f"{root} public API core models config exceptions",
+                ]
+            )
+
+    if repo_name.lower() == "httpx" or "httpx" in lowered_question:
+        queries.extend(
+            [
+                "httpx _client Client send request build_request send_handling_auth send_handling_redirects send_single_request",
+                "httpx _transports base default handle_request handle_async_request HTTPTransport AsyncHTTPTransport",
+                "httpx _models Request Response Headers URL",
+                "httpx _api get post request stream Client AsyncClient",
             ]
         )
 

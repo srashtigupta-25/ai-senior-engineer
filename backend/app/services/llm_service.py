@@ -93,7 +93,13 @@ def get_framework_rules(repository_facts):
     if "framework" not in repository_type and "library" not in repository_type:
         return "- No extra framework-specific rules."
 
-    return """
+    indexed_paths = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+
+    if any(path.startswith("src/flask/") for path in indexed_paths):
+        return """
 - This repository is framework or library source code, not a user application built with it.
 - Do not say users should run python app.py unless that exact file and command are present.
 - Do not describe views.py as user route handlers; if src/flask/views.py exists, it is framework implementation code for class-based views.
@@ -104,6 +110,22 @@ def get_framework_rules(repository_facts):
 - Do not invent clone URLs, production deployment questions, --config options, or database/API integration tasks.
 - Onboarding should focus on package metadata, src/ implementation modules, tests, and framework extension points.
 - Architecture should describe framework internals: application object, context lifecycle, routing, dispatch, blueprints, CLI, templating, JSON, testing, and WSGI integration when those files are present.
+"""
+
+    if any(path.startswith("httpx/") for path in indexed_paths):
+        return """
+- This repository is HTTP client library source code, not an application.
+- Do not invent app routes, controllers, servers, or database models.
+- Use exact HTTPX file paths such as httpx/_client.py, httpx/_models.py, and httpx/_transports/default.py when those files appear in context.
+- Do not mention httpx/client.py, httpx/request.py, httpx/response.py, or httpx/transport.py unless those exact files appear in context.
+- Explain request sending through client orchestration, request/response models, configuration, auth/redirect handling, and transport abstractions.
+"""
+
+    return """
+- This repository is framework or library source code, not a user application built with it.
+- Do not invent app routes, controllers, servers, or database models.
+- Use exact source paths from the repository profile or source context.
+- Explain how consumers call into the package and how the package handles the work internally.
 """
 
 
@@ -130,6 +152,10 @@ def sanitize_answer(answer, repository_facts):
         repository_facts
     )
     cleaned_answer = remove_framework_hallucinations(
+        cleaned_answer,
+        repository_facts
+    )
+    cleaned_answer = correct_httpx_language(
         cleaned_answer,
         repository_facts
     )
@@ -289,6 +315,36 @@ def remove_framework_hallucinations(answer, repository_facts):
         r"A request is made to the Flask framework source repository": "A request reaches a Flask application object created by a user of the framework",
         r"request is made to the Flask framework source repository": "request reaches a Flask application object created by a user of the framework",
     }
+
+    for pattern, replacement in replacements.items():
+        cleaned_answer = re.sub(
+            pattern,
+            replacement,
+            cleaned_answer
+        )
+
+    return cleaned_answer
+
+
+def correct_httpx_language(answer, repository_facts):
+    indexed_files = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+
+    if not any(path.startswith("httpx/") for path in indexed_files):
+        return answer
+
+    replacements = {
+        r"httpx/client\.py": "httpx/_client.py",
+        r"httpx/transport\.py": "httpx/_transports/base.py and httpx/_transports/default.py",
+        r"httpx/request\.py": "httpx/_models.py",
+        r"httpx/response\.py": "httpx/_models.py",
+        r"httpx\.Transport": "httpx transport classes",
+        r"The transport layer will send the request over the network using the underlying protocol \(e\.g\., TCP/IP\)\.": "The selected transport implements the sync or async network I/O and returns a response model.",
+    }
+
+    cleaned_answer = answer
 
     for pattern, replacement in replacements.items():
         cleaned_answer = re.sub(

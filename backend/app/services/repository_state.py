@@ -71,6 +71,7 @@ def get_repository_facts():
             "repository_type": "unknown",
             "classification_evidence": [],
             "files": [],
+            "source_roots": [],
         }
 
     return {
@@ -78,6 +79,7 @@ def get_repository_facts():
         "repository_type": state.get("detected_repository_type", "unknown"),
         "classification_evidence": state.get("classification_evidence", []),
         "files": state.get("files", []),
+        "source_roots": detect_source_roots(state.get("files", []), state["repository"]["repo_name"]),
     }
 
 
@@ -210,6 +212,12 @@ def classify_repository(files: list[dict[str, Any]]):
         return "JavaScript/TypeScript package", evidence
 
     if pyproject_text:
+        package_roots = detect_source_roots(files, "")
+
+        if package_roots:
+            evidence.append("Repository has pyproject.toml and Python package source files.")
+            return "library", evidence
+
         evidence.append("Repository has pyproject.toml but no clear application entry point.")
         return "Python package", evidence
 
@@ -227,3 +235,30 @@ def _content_for_first_matching(path_map: dict[str, dict[str, Any]], names: list
             return file.get("content", "")
 
     return ""
+
+
+def detect_source_roots(files: list[dict[str, Any]], repo_name: str):
+    file_paths = {
+        file.get("file_path", "")
+        for file in files
+    }
+
+    roots = []
+    normalized_repo_name = repo_name.replace("-", "_").lower()
+
+    for path in sorted(file_paths):
+        parts = path.split("/")
+
+        if len(parts) == 2 and parts[1] == "__init__.py":
+            roots.append(parts[0])
+
+        if len(parts) >= 3 and parts[0] == "src" and parts[2] == "__init__.py":
+            roots.append("/".join(parts[:2]))
+
+    if normalized_repo_name:
+        for root in list(roots):
+            if root.lower().endswith(normalized_repo_name):
+                roots.remove(root)
+                roots.insert(0, root)
+
+    return list(dict.fromkeys(roots))

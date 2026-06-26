@@ -149,14 +149,17 @@ def build_framework_architecture_report(repository_facts: dict):
     evidence = " ".join(repository_facts["classification_evidence"]) or "Indexed metadata identifies this as framework or library source code."
     files = repository_facts["files"]
     file_paths = {file["file_path"] for file in files}
+    source_roots = repository_facts.get("source_roots", [])
+    is_flask_repo = any(path.startswith("src/flask/") for path in file_paths)
 
-    components = [
-        describe_file(path)
-        for path in pick_existing_files(
-            file_paths,
+    preferred_paths = [
+        "README.md",
+        "pyproject.toml",
+    ]
+
+    if is_flask_repo:
+        preferred_paths.extend(
             [
-                "README.md",
-                "pyproject.toml",
                 "src/flask/__init__.py",
                 "src/flask/app.py",
                 "src/flask/sansio/app.py",
@@ -167,11 +170,35 @@ def build_framework_architecture_report(repository_facts: dict):
                 "src/flask/templating.py",
                 "src/flask/json/provider.py",
                 "src/flask/testing.py",
-            ],
-            fallback_prefixes=["src/", "tests/"],
+            ]
+        )
+    else:
+        for root in source_roots:
+            preferred_paths.extend(
+                [
+                    f"{root}/__init__.py",
+                    f"{root}/_api.py",
+                    f"{root}/_client.py",
+                    f"{root}/_models.py",
+                    f"{root}/_config.py",
+                    f"{root}/_transports/base.py",
+                    f"{root}/_transports/default.py",
+                    f"{root}/_exceptions.py",
+                    f"{root}/_main.py",
+                ]
+            )
+
+    components = [
+        describe_file(path)
+        for path in pick_existing_files(
+            file_paths,
+            preferred_paths,
+            fallback_prefixes=[f"{root}/" for root in source_roots] + ["src/", "tests/"],
             limit=12
         )
     ]
+    flow_lines = framework_flow_lines(is_flask_repo)
+    entry_lines = framework_entry_lines(is_flask_repo)
 
     return "\n".join(
         [
@@ -186,13 +213,10 @@ def build_framework_architecture_report(repository_facts: dict):
             *format_bullets(components),
             "",
             "## Entry Points",
-            "- Public package exports and public classes are the main consumer entry points.",
-            "- For Flask-like repositories, a user creates an application object from the framework, then the framework handles context setup, routing, dispatch, response conversion, CLI support, testing helpers, and integrations.",
+            *entry_lines,
             "",
             "## Data And Control Flow",
-            "- A user application calls into the framework by creating an application object and registering routes, blueprints, hooks, or extensions.",
-            "- Incoming WSGI requests are handled by framework dispatch code, which creates/pushes request and application context state, matches URL rules, calls registered user handlers, and finalizes responses.",
-            "- CLI and testing modules support developer workflows around locating applications, running commands, and exercising request/application contexts.",
+            *flow_lines,
             "",
             "## Storage And External Integrations",
             "- No application database or persistent domain storage is implied by this repository type.",
@@ -217,14 +241,16 @@ def build_framework_onboarding_guide(repository_facts: dict):
     evidence = " ".join(repository_facts["classification_evidence"]) or "Indexed metadata identifies this as framework or library source code."
     files = repository_facts["files"]
     file_paths = {file["file_path"] for file in files}
+    source_roots = repository_facts.get("source_roots", [])
+    is_flask_repo = any(path.startswith("src/flask/") for path in file_paths)
+    preferred_paths = [
+        "README.md",
+        "pyproject.toml",
+    ]
 
-    reading_path = [
-        describe_file(path)
-        for path in pick_existing_files(
-            file_paths,
+    if is_flask_repo:
+        preferred_paths.extend(
             [
-                "README.md",
-                "pyproject.toml",
                 "src/flask/sansio/README.md",
                 "src/flask/__init__.py",
                 "src/flask/app.py",
@@ -238,11 +264,43 @@ def build_framework_onboarding_guide(repository_facts: dict):
                 "tests/test_basic.py",
                 "tests/test_blueprints.py",
                 "tests/test_cli.py",
-            ],
-            fallback_prefixes=["src/", "tests/"],
+            ]
+        )
+    else:
+        for root in source_roots:
+            preferred_paths.extend(
+                [
+                    f"{root}/__init__.py",
+                    f"{root}/_api.py",
+                    f"{root}/_client.py",
+                    f"{root}/_models.py",
+                    f"{root}/_config.py",
+                    f"{root}/_transports/base.py",
+                    f"{root}/_transports/default.py",
+                    f"{root}/_exceptions.py",
+                    f"{root}/_main.py",
+                ]
+            )
+        preferred_paths.extend(
+            [
+                "tests/client/test_client.py",
+                "tests/models/test_requests.py",
+                "tests/models/test_responses.py",
+                "tests/test_api.py",
+            ]
+        )
+
+    reading_path = [
+        describe_file(path)
+        for path in pick_existing_files(
+            file_paths,
+            preferred_paths,
+            fallback_prefixes=[f"{root}/" for root in source_roots] + ["src/", "tests/"],
             limit=10
         )
     ]
+    mental_model = framework_mental_model_lines(is_flask_repo)
+    common_tasks = framework_common_task_lines(is_flask_repo)
 
     return "\n".join(
         [
@@ -259,14 +317,10 @@ def build_framework_onboarding_guide(repository_facts: dict):
             "- After setup, run the repository's test command from documented project metadata or contributor docs.",
             "",
             "## Mental Model",
-            "- Treat this as framework/library source code. User projects import it and create their own applications; this repository implements the reusable machinery those applications use.",
-            "- For Flask-like frameworks, request handling flows through application objects, URL maps/rules, request and application contexts, dispatch methods, response conversion, CLI support, and testing utilities.",
-            "- Application context and request context are different concepts: application context holds app-scoped state, while request context holds request-scoped state.",
+            *mental_model,
             "",
             "## Common Tasks",
-            "- Update framework internals in `src/` modules and add matching regression tests under `tests/`.",
-            "- Investigate routing, context, blueprint, CLI, templating, JSON, session, or testing behavior by starting from the matching source module and test file.",
-            "- Preserve public API and extension compatibility when changing behavior used by downstream applications.",
+            *common_tasks,
             "",
             "## Questions To Ask The Team",
             "- Which public APIs and backwards-compatibility guarantees are most sensitive?",
@@ -311,6 +365,17 @@ def describe_file(file_path: str):
         ("src/flask/templating.py", "Template rendering integration."),
         ("src/flask/json/provider.py", "JSON serialization provider behavior."),
         ("src/flask/testing.py", "Testing client and helpers."),
+        ("httpx/__init__.py", "Public package exports and import surface."),
+        ("httpx/_api.py", "Top-level convenience request API."),
+        ("httpx/_client.py", "Synchronous and asynchronous client implementation, request building, redirects, auth flow, and send pipeline."),
+        ("httpx/_models.py", "Core request, response, headers, cookies, and stream models."),
+        ("httpx/_config.py", "Timeout, limits, proxy, and SSL configuration models."),
+        ("httpx/_transports/base.py", "Transport interface contracts."),
+        ("httpx/_transports/default.py", "Default HTTP transport implementation that performs network I/O."),
+        ("httpx/_exceptions.py", "Exception hierarchy and error types."),
+        ("httpx/_main.py", "Command-line entry behavior if the package exposes CLI usage."),
+        ("tests/client/", "Client behavior regression tests."),
+        ("tests/models/", "Request/response/model behavior regression tests."),
         ("tests/", "Regression tests that document expected framework behavior."),
     ]
 
@@ -328,6 +393,64 @@ def format_bullets(items: list[str]):
     return [
         f"- {item}"
         for item in items
+    ]
+
+
+def framework_entry_lines(is_flask_repo: bool):
+    if is_flask_repo:
+        return [
+            "- Public package exports and public classes are the main consumer entry points.",
+            "- For Flask-like repositories, a user creates an application object from the framework, then the framework handles context setup, routing, dispatch, response conversion, CLI support, testing helpers, and integrations.",
+        ]
+
+    return [
+        "- Public package exports and client classes are the main consumer entry points.",
+        "- For HTTP client libraries, users call convenience APIs or instantiate client objects; the library builds request models, applies configuration, delegates network I/O to transports, and returns response models.",
+    ]
+
+
+def framework_flow_lines(is_flask_repo: bool):
+    if is_flask_repo:
+        return [
+            "- A user application calls into the framework by creating an application object and registering routes, blueprints, hooks, or extensions.",
+            "- Incoming WSGI requests are handled by framework dispatch code, which creates/pushes request and application context state, matches URL rules, calls registered user handlers, and finalizes responses.",
+            "- CLI and testing modules support developer workflows around locating applications, running commands, and exercising request/application contexts.",
+        ]
+
+    return [
+        "- A user calls a high-level API or client method with a method, URL, headers, parameters, and optional body.",
+        "- The client builds a request model, applies configuration such as redirects, auth, cookies, timeout, proxy, and SSL settings, then sends through a transport abstraction.",
+        "- The selected transport performs sync or async network I/O and returns a response model for the client to expose to the caller.",
+    ]
+
+
+def framework_mental_model_lines(is_flask_repo: bool):
+    if is_flask_repo:
+        return [
+            "- Treat this as framework/library source code. User projects import it and create their own applications; this repository implements the reusable machinery those applications use.",
+            "- For Flask-like frameworks, request handling flows through application objects, URL maps/rules, request and application contexts, dispatch methods, response conversion, CLI support, and testing utilities.",
+            "- Application context and request context are different concepts: application context holds app-scoped state, while request context holds request-scoped state.",
+        ]
+
+    return [
+        "- Treat this as library source code. User projects import it and call APIs or client objects; this repository implements request construction, configuration, transport delegation, and response modeling.",
+        "- Separate client orchestration from transport I/O: clients own request preparation and policy, while transports perform the actual sync or async send operation.",
+        "- Tests under `tests/` document expected behavior for clients, models, configuration, transports, and public API compatibility.",
+    ]
+
+
+def framework_common_task_lines(is_flask_repo: bool):
+    if is_flask_repo:
+        return [
+            "- Update framework internals in `src/` modules and add matching regression tests under `tests/`.",
+            "- Investigate routing, context, blueprint, CLI, templating, JSON, session, or testing behavior by starting from the matching source module and test file.",
+            "- Preserve public API and extension compatibility when changing behavior used by downstream applications.",
+        ]
+
+    return [
+        "- Update client, model, config, or transport internals and add matching regression tests under `tests/`.",
+        "- Investigate send-flow behavior by starting from the client module, request/response model module, and transport modules.",
+        "- Preserve public API compatibility and sync/async behavior when changing internals used by downstream applications.",
     ]
 
 
