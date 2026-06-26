@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 
 
-REPO_FOLDER = Path("repositories")
+REPO_FOLDER = Path("../repositories")
 
 
 def clone_repository(repo_url: str):

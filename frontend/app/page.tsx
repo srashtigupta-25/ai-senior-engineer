@@ -1,65 +1,246 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import {
+  askRepository,
+  getArchitecture,
+  getOnboarding,
+  indexRepository,
+} from "@/lib/api";
 
 export default function Home() {
+  const [repoUrl, setRepoUrl] = useState("https://github.com/pallets/flask");
+  const [question, setQuestion] = useState("How does routing work in Flask?");
+  const [activeTab, setActiveTab] = useState("chat");
+  const [loading, setLoading] = useState(false);
+  const [repoInfo, setRepoInfo] = useState<any>(null);
+  const [answer, setAnswer] = useState("");
+  const [architecture, setArchitecture] = useState("");
+  const [onboarding, setOnboarding] = useState("");
+
+  async function handleIndex() {
+    setLoading(true);
+
+    try {
+      const data = await indexRepository(repoUrl);
+      setRepoInfo(data);
+    } catch {
+      alert("Repository indexing failed. Please check your backend terminal.");
+    }
+
+    setLoading(false);
+  }
+
+  async function handleAsk() {
+    setLoading(true);
+
+    try {
+      const data = await askRepository(question);
+      setAnswer(data.answer);
+    } catch {
+      alert("Question failed. Make sure backend and Ollama are running.");
+    }
+
+    setLoading(false);
+  }
+
+  async function handleArchitecture() {
+    setLoading(true);
+
+    try {
+      const data = await getArchitecture();
+      setArchitecture(data.architecture);
+    } catch {
+      alert("Architecture analysis failed.");
+    }
+
+    setLoading(false);
+  }
+
+  async function handleOnboarding() {
+    setLoading(true);
+
+    try {
+      const data = await getOnboarding();
+      setOnboarding(data.guide);
+    } catch {
+      alert("Onboarding guide failed.");
+    }
+
+    setLoading(false);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-slate-950 text-white">
+      <section className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mb-10">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-cyan-400">
+            Codebase Intelligence Platform
+          </p>
+
+          <h1 className="text-5xl font-bold tracking-tight">
+            AI Senior Engineer
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+          <p className="mt-4 max-w-3xl text-lg text-slate-300">
+            Paste a GitHub repository and let an AI system index the codebase,
+            retrieve relevant files, explain architecture, answer engineering
+            questions, and generate onboarding guidance.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+          <label className="mb-2 block text-sm text-slate-300">
+            GitHub Repository URL
+          </label>
+
+          <div className="flex flex-col gap-3 md:flex-row">
+            <input
+              value={repoUrl}
+              onChange={(event) => setRepoUrl(event.target.value)}
+              className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+            <button
+              onClick={handleIndex}
+              className="rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+            >
+              {loading ? "Working..." : "Analyze Repo"}
+            </button>
+          </div>
+
+          {repoInfo && (
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <Metric label="Repository" value={repoInfo.repository.repo_name} />
+              <Metric label="Files Indexed" value={repoInfo.files} />
+              <Metric label="Chunks Stored" value={repoInfo.chunks} />
+            </div>
+          )}
         </div>
-      </main>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <TabButton
+            label="Ask Senior Engineer"
+            id="chat"
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+
+          <TabButton
+            label="Architecture"
+            id="architecture"
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+
+          <TabButton
+            label="Onboarding"
+            id="onboarding"
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          {activeTab === "chat" && (
+            <div>
+              <h2 className="mb-4 text-2xl font-bold">Ask Senior Engineer</h2>
+
+              <textarea
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                className="h-28 w-full rounded-xl border border-slate-700 bg-slate-950 p-4 text-white outline-none"
+              />
+
+              <button
+                onClick={handleAsk}
+                className="mt-4 rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+              >
+                {loading ? "Thinking..." : "Ask"}
+              </button>
+
+              {answer && <MarkdownBlock content={answer} />}
+            </div>
+          )}
+
+          {activeTab === "architecture" && (
+            <div>
+              <h2 className="mb-4 text-2xl font-bold">
+                Architecture Analysis
+              </h2>
+
+              <button
+                onClick={handleArchitecture}
+                className="rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+              >
+                {loading ? "Analyzing..." : "Generate Architecture"}
+              </button>
+
+              {architecture && <MarkdownBlock content={architecture} />}
+            </div>
+          )}
+
+          {activeTab === "onboarding" && (
+            <div>
+              <h2 className="mb-4 text-2xl font-bold">
+                Developer Onboarding Guide
+              </h2>
+
+              <button
+                onClick={handleOnboarding}
+                className="rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+              >
+                {loading ? "Building Guide..." : "Generate Guide"}
+              </button>
+
+              {onboarding && <MarkdownBlock content={onboarding} />}
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+      <p className="text-sm text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function TabButton({
+  label,
+  id,
+  activeTab,
+  setActiveTab,
+}: {
+  label: string;
+  id: string;
+  activeTab: string;
+  setActiveTab: (id: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={`rounded-xl px-5 py-3 font-semibold ${
+        activeTab === id
+          ? "bg-cyan-500 text-slate-950"
+          : "bg-slate-900 text-slate-300"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function MarkdownBlock({ content }: { content: string }) {
+  return (
+    <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950 p-6 text-slate-200">
+      <ReactMarkdown>{content}</ReactMarkdown>
     </div>
   );
 }
