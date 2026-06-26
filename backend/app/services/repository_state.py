@@ -62,6 +62,25 @@ def load_repository_state():
     )
 
 
+def get_repository_facts():
+    state = load_repository_state()
+
+    if not state:
+        return {
+            "repo_name": "unknown",
+            "repository_type": "unknown",
+            "classification_evidence": [],
+            "files": [],
+        }
+
+    return {
+        "repo_name": state["repository"]["repo_name"],
+        "repository_type": state.get("detected_repository_type", "unknown"),
+        "classification_evidence": state.get("classification_evidence", []),
+        "files": state.get("files", []),
+    }
+
+
 def build_repository_profile(max_files: int = 80):
     state = load_repository_state()
 

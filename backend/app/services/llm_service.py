@@ -1,6 +1,9 @@
 import os
+import re
 
 import requests
+
+from app.services.repository_state import get_repository_facts
 
 OLLAMA_URL = os.getenv(
     "OLLAMA_URL",
@@ -15,6 +18,8 @@ OLLAMA_MODEL = os.getenv(
 
 def generate_answer(question, context, repository_profile="", report_type="question"):
     format_instructions = get_format_instructions(report_type)
+    repository_facts = get_repository_facts()
+    framework_rules = get_framework_rules(repository_facts)
 
     prompt = f"""
 You are an expert senior software engineer analyzing a real GitHub repository.
@@ -40,6 +45,11 @@ Prefer specific implementation details over generic framework explanations.
 When explaining flow, mention the concrete functions, classes, modules, or config files that support each step.
 If a user asks a broad "how does it work internally" question, explain the major internal subsystems, not only one matching keyword.
 Use relative file paths exactly as shown. Do not prefix paths with ../repositories/ or any local clone directory.
+Do not shorten a path to only its basename. For example, write src/flask/app.py, not app.py.
+Do not include a Repository Type section that contradicts the detected repository type.
+
+Additional repository-specific rules:
+{framework_rules}
 
 Repository Profile:
 {repository_profile}
@@ -71,7 +81,114 @@ User Question:
 
     data = response.json()
 
-    return data["response"]
+    return sanitize_answer(
+        data["response"],
+        repository_facts
+    )
+
+
+def get_framework_rules(repository_facts):
+    repository_type = repository_facts["repository_type"].lower()
+
+    if "framework" not in repository_type and "library" not in repository_type:
+        return "- No extra framework-specific rules."
+
+    return """
+- This repository is framework or library source code, not a user application built with it.
+- Do not say users should run python app.py unless that exact file and command are present.
+- Do not describe views.py as user route handlers; if src/flask/views.py exists, it is framework implementation code for class-based views.
+- Onboarding should focus on package metadata, src/ implementation modules, tests, and framework extension points.
+- Architecture should describe framework internals: application object, context lifecycle, routing, dispatch, blueprints, CLI, templating, JSON, testing, and WSGI integration when those files are present.
+"""
+
+
+def sanitize_answer(answer, repository_facts):
+    cleaned_answer = answer.strip()
+    cleaned_answer = remove_local_clone_prefixes(
+        cleaned_answer,
+        repository_facts["repo_name"]
+    )
+    cleaned_answer = expand_unique_basenames(
+        cleaned_answer,
+        repository_facts["files"]
+    )
+
+    repository_type_section = build_repository_type_section(repository_facts)
+
+    if re.search(r"^##\s+Repository Type\b", cleaned_answer, flags=re.MULTILINE):
+        return re.sub(
+            r"^##\s+Repository Type\b.*?(?=^##\s+|\Z)",
+            repository_type_section + "\n\n",
+            cleaned_answer,
+            count=1,
+            flags=re.MULTILINE | re.DOTALL
+        ).strip()
+
+    return f"{repository_type_section}\n\n{cleaned_answer}".strip()
+
+
+def build_repository_type_section(repository_facts):
+    evidence = repository_facts["classification_evidence"]
+    evidence_text = " ".join(evidence) if evidence else "No explicit classification evidence was stored."
+
+    return "\n".join(
+        [
+            "## Repository Type",
+            f"{repository_facts['repo_name']} is classified as **{repository_facts['repository_type']}**.",
+            evidence_text,
+        ]
+    )
+
+
+def remove_local_clone_prefixes(answer, repo_name):
+    if not repo_name or repo_name == "unknown":
+        return answer
+
+    patterns = [
+        rf"\.\./repositories/{re.escape(repo_name)}/",
+        rf"repositories/{re.escape(repo_name)}/",
+        rf".*/repositories/{re.escape(repo_name)}/",
+    ]
+
+    cleaned_answer = answer
+
+    for pattern in patterns:
+        cleaned_answer = re.sub(
+            pattern,
+            "",
+            cleaned_answer
+        )
+
+    return cleaned_answer
+
+
+def expand_unique_basenames(answer, files):
+    basename_to_paths = {}
+
+    for file in files:
+        path = file.get("file_path", "")
+        basename = path.split("/")[-1]
+
+        if not basename:
+            continue
+
+        basename_to_paths.setdefault(basename, set()).add(path)
+
+    cleaned_answer = answer
+
+    for basename, paths in basename_to_paths.items():
+        if len(paths) != 1 or "/" not in next(iter(paths)):
+            continue
+
+        full_path = next(iter(paths))
+
+        cleaned_answer = re.sub(
+            rf"(?<![\w/.-]){re.escape(basename)}(?![\w/.-])",
+            full_path,
+            cleaned_answer
+        )
+
+    return cleaned_answer
 
 
 def get_format_instructions(report_type):
