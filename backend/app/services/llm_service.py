@@ -26,16 +26,20 @@ Do not invent functions or classes.
 Always use exact file paths from the repository profile or source context.
 If evidence is missing, say what is missing instead of guessing.
 
-First classify what kind of repository this appears to be:
-library, framework, CLI tool, backend service, frontend app, full-stack app, AI system, data pipeline, or unknown.
+The repository profile contains a field named "Detected repository type".
+Use that detected type as the primary classification unless the source context clearly contradicts it.
+If it says framework/library, never describe the repository as an application built with that framework.
+If it says Python package or JavaScript/TypeScript package, explain whether the evidence supports library, CLI, app, or unknown.
 
 Do not assume the repository is a web application.
 If the repository appears to be a framework or library, explain it as framework or library source code, not as an application built with that framework.
 
+Never mention conventional files such as views.py, routes.py, controllers.py, models.py, or app.py unless they appear in the repository profile or source context.
 Ground every important claim in one or more cited source files.
 Prefer specific implementation details over generic framework explanations.
 When explaining flow, mention the concrete functions, classes, modules, or config files that support each step.
 If a user asks a broad "how does it work internally" question, explain the major internal subsystems, not only one matching keyword.
+Use relative file paths exactly as shown. Do not prefix paths with ../repositories/ or any local clone directory.
 
 Repository Profile:
 {repository_profile}

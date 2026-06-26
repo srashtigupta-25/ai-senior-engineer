@@ -3,6 +3,20 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
+  Activity,
+  ArrowRight,
+  BookOpen,
+  BrainCircuit,
+  CheckCircle2,
+  FileCode2,
+  GitBranch,
+  LayoutDashboard,
+  Loader2,
+  Network,
+  Search,
+  Sparkles,
+} from "lucide-react";
+import {
   askRepository,
   getArchitecture,
   getOnboarding,
@@ -16,22 +30,40 @@ type RepositoryInfo = {
   };
   files: number;
   chunks: number;
+  repository_type?: string;
   status: string;
 };
 
+type TabId = "chat" | "architecture" | "onboarding";
+type PendingAction = "index" | "ask" | "architecture" | "onboarding" | null;
+
+const tabs: Array<{
+  id: TabId;
+  label: string;
+  icon: typeof BrainCircuit;
+}> = [
+  { id: "chat", label: "Ask", icon: BrainCircuit },
+  { id: "architecture", label: "Architecture", icon: Network },
+  { id: "onboarding", label: "Onboarding", icon: BookOpen },
+];
+
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("https://github.com/pallets/flask");
-  const [question, setQuestion] = useState("How does routing work in Flask?");
-  const [activeTab, setActiveTab] = useState("chat");
-  const [loading, setLoading] = useState(false);
+  const [question, setQuestion] = useState("How does Flask work internally?");
+  const [activeTab, setActiveTab] = useState<TabId>("chat");
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [repoInfo, setRepoInfo] = useState<RepositoryInfo | null>(null);
   const [answer, setAnswer] = useState("");
   const [sources, setSources] = useState<string[]>([]);
   const [architecture, setArchitecture] = useState("");
   const [onboarding, setOnboarding] = useState("");
+  const [error, setError] = useState("");
+
+  const isBusy = pendingAction !== null;
 
   async function handleIndex() {
-    setLoading(true);
+    setPendingAction("index");
+    setError("");
 
     try {
       const data = await indexRepository(repoUrl);
@@ -41,194 +73,334 @@ export default function Home() {
       setArchitecture("");
       setOnboarding("");
     } catch {
-      alert("Repository indexing failed. Please check your backend terminal.");
+      setError("Repository indexing failed. Check the backend terminal and confirm the GitHub URL is public.");
     }
 
-    setLoading(false);
+    setPendingAction(null);
   }
 
   async function handleAsk() {
-    setLoading(true);
+    setPendingAction("ask");
+    setError("");
 
     try {
       const data = await askRepository(question);
       setAnswer(data.answer);
       setSources(data.sources || []);
     } catch {
-      alert("Question failed. Make sure backend and Ollama are running.");
+      setError("Question failed. Confirm the backend and Ollama are running.");
     }
 
-    setLoading(false);
+    setPendingAction(null);
   }
 
   async function handleArchitecture() {
-    setLoading(true);
+    setPendingAction("architecture");
+    setError("");
 
     try {
       const data = await getArchitecture();
       setArchitecture(data.architecture);
     } catch {
-      alert("Architecture analysis failed.");
+      setError("Architecture analysis failed. Re-index the repository and try again.");
     }
 
-    setLoading(false);
+    setPendingAction(null);
   }
 
   async function handleOnboarding() {
-    setLoading(true);
+    setPendingAction("onboarding");
+    setError("");
 
     try {
       const data = await getOnboarding();
       setOnboarding(data.guide);
     } catch {
-      alert("Onboarding guide failed.");
+      setError("Onboarding guide failed. Re-index the repository and try again.");
     }
 
-    setLoading(false);
+    setPendingAction(null);
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-10">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-cyan-400">
-            Codebase Intelligence Platform
-          </p>
+    <main className="min-h-screen bg-[#f5f7fb] text-[#111827]">
+      <section className="border-b border-[#dfe5ee] bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex size-12 items-center justify-center rounded-lg bg-[#111827] text-white">
+              <Sparkles size={24} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold uppercase text-[#0f766e]">
+                Codebase Intelligence
+              </p>
+              <h1 className="text-3xl font-bold tracking-tight">
+                AI Senior Engineer
+              </h1>
+            </div>
+          </div>
 
-          <h1 className="text-5xl font-bold tracking-tight">
-            AI Senior Engineer
-          </h1>
-
-          <p className="mt-4 max-w-3xl text-lg text-slate-300">
-            Paste a GitHub repository and let an AI system index the codebase,
-            retrieve relevant files, explain architecture, answer engineering
-            questions, and generate onboarding guidance.
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusPill label="FastAPI" value=":8000" />
+            <StatusPill label="Next.js" value=":3001" />
+            <StatusPill label="Ollama" value="local" />
+          </div>
         </div>
+      </section>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
-          <label className="mb-2 block text-sm text-slate-300">
-            GitHub Repository URL
-          </label>
+      <section className="mx-auto grid max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[380px_1fr]">
+        <aside className="space-y-6">
+          <div className="rounded-lg border border-[#dfe5ee] bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <GitBranch size={18} className="text-[#0f766e]" />
+              <h2 className="text-lg font-semibold">Repository</h2>
+            </div>
 
-          <div className="flex flex-col gap-3 md:flex-row">
+            <label className="mb-2 block text-sm font-medium text-[#4b5563]">
+              GitHub URL
+            </label>
             <input
               value={repoUrl}
               onChange={(event) => setRepoUrl(event.target.value)}
-              className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none"
+              className="w-full rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-sm outline-none transition focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10"
             />
 
             <button
               onClick={handleIndex}
-              className="rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+              disabled={isBusy}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#111827] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Working..." : "Analyze Repo"}
+              {pendingAction === "index" ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Search size={18} />
+              )}
+              Analyze Repository
             </button>
+
+            {repoInfo && (
+              <div className="mt-5 space-y-3">
+                <Metric
+                  icon={CheckCircle2}
+                  label="Repository"
+                  value={repoInfo.repository.repo_name}
+                />
+                <Metric
+                  icon={LayoutDashboard}
+                  label="Detected Type"
+                  value={repoInfo.repository_type || "Indexed"}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Metric icon={FileCode2} label="Files" value={repoInfo.files} />
+                  <Metric icon={Activity} label="Chunks" value={repoInfo.chunks} />
+                </div>
+              </div>
+            )}
           </div>
 
-          {repoInfo && (
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <Metric label="Repository" value={repoInfo.repository.repo_name} />
-              <Metric label="Files Indexed" value={repoInfo.files} />
-              <Metric label="Chunks Stored" value={repoInfo.chunks} />
+          <div className="rounded-lg border border-[#dfe5ee] bg-[#111827] p-5 text-white shadow-sm">
+            <p className="text-sm font-semibold text-[#5eead4]">Demo Checks</p>
+            <div className="mt-4 space-y-3 text-sm text-[#d1d5db]">
+              <CheckItem text="Repository type should be framework/library for Flask." />
+              <CheckItem text="Answers should cite relative paths like src/flask/app.py." />
+              <CheckItem text="Architecture and onboarding should use their own report sections." />
             </div>
-          )}
-        </div>
+          </div>
+        </aside>
 
-        <div className="mt-8 flex flex-wrap gap-3">
-          <TabButton
-            label="Ask Senior Engineer"
-            id="chat"
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
+        <section className="min-w-0 rounded-lg border border-[#dfe5ee] bg-white shadow-sm">
+          <div className="border-b border-[#dfe5ee] p-4">
+            <div className="flex flex-wrap gap-2">
+              {tabs.map((tab) => (
+                <TabButton
+                  key={tab.id}
+                  tab={tab}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                />
+              ))}
+            </div>
+          </div>
 
-          <TabButton
-            label="Architecture"
-            id="architecture"
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
+          <div className="p-5">
+            {error && (
+              <div className="mb-5 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm font-medium text-[#991b1b]">
+                {error}
+              </div>
+            )}
 
-          <TabButton
-            label="Onboarding"
-            id="onboarding"
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
-        </div>
-
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          {activeTab === "chat" && (
-            <div>
-              <h2 className="mb-4 text-2xl font-bold">Ask Senior Engineer</h2>
-
-              <textarea
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-                className="h-28 w-full rounded-xl border border-slate-700 bg-slate-950 p-4 text-white outline-none"
-              />
-
-              <button
-                onClick={handleAsk}
-                className="mt-4 rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+            {activeTab === "chat" && (
+              <WorkbenchPanel
+                title="Ask Senior Engineer"
+                description="Grounded answers from indexed files, symbols, and source ranges."
+                actionLabel="Ask"
+                isLoading={pendingAction === "ask"}
+                onAction={handleAsk}
               >
-                {loading ? "Thinking..." : "Ask"}
-              </button>
+                <textarea
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  className="min-h-32 w-full resize-y rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 text-base outline-none transition focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10"
+                />
 
-              {answer && (
-                <>
-                  <MarkdownBlock content={answer} />
-                  <SourcesList sources={sources} />
-                </>
-              )}
-            </div>
-          )}
+                {answer && (
+                  <>
+                    <MarkdownBlock content={answer} />
+                    <SourcesList sources={sources} />
+                  </>
+                )}
+              </WorkbenchPanel>
+            )}
 
-          {activeTab === "architecture" && (
-            <div>
-              <h2 className="mb-4 text-2xl font-bold">
-                Architecture Analysis
-              </h2>
-
-              <button
-                onClick={handleArchitecture}
-                className="rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+            {activeTab === "architecture" && (
+              <WorkbenchPanel
+                title="Architecture Analysis"
+                description="System map, entry points, runtime flow, configuration, and risks."
+                actionLabel="Generate Architecture"
+                isLoading={pendingAction === "architecture"}
+                onAction={handleArchitecture}
               >
-                {loading ? "Analyzing..." : "Generate Architecture"}
-              </button>
+                {architecture ? (
+                  <MarkdownBlock content={architecture} />
+                ) : (
+                  <EmptyState text="Generate an architecture report after indexing a repository." />
+                )}
+              </WorkbenchPanel>
+            )}
 
-              {architecture && <MarkdownBlock content={architecture} />}
-            </div>
-          )}
-
-          {activeTab === "onboarding" && (
-            <div>
-              <h2 className="mb-4 text-2xl font-bold">
-                Developer Onboarding Guide
-              </h2>
-
-              <button
-                onClick={handleOnboarding}
-                className="rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+            {activeTab === "onboarding" && (
+              <WorkbenchPanel
+                title="Developer Onboarding Guide"
+                description="First-day reading path, setup notes, mental model, and team questions."
+                actionLabel="Generate Guide"
+                isLoading={pendingAction === "onboarding"}
+                onAction={handleOnboarding}
               >
-                {loading ? "Building Guide..." : "Generate Guide"}
-              </button>
-
-              {onboarding && <MarkdownBlock content={onboarding} />}
-            </div>
-          )}
-        </div>
+                {onboarding ? (
+                  <MarkdownBlock content={onboarding} />
+                ) : (
+                  <EmptyState text="Generate an onboarding guide after indexing a repository." />
+                )}
+              </WorkbenchPanel>
+            )}
+          </div>
+        </section>
       </section>
     </main>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function StatusPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-      <p className="text-sm text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
+    <div className="rounded-lg border border-[#dfe5ee] bg-[#f8fafc] px-3 py-2 text-sm">
+      <span className="font-medium text-[#4b5563]">{label}</span>
+      <span className="ml-2 font-semibold text-[#111827]">{value}</span>
+    </div>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Activity;
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-lg border border-[#dfe5ee] bg-[#f8fafc] p-3">
+      <div className="flex items-center gap-2 text-sm text-[#64748b]">
+        <Icon size={16} />
+        {label}
+      </div>
+      <p className="mt-1 break-words text-lg font-semibold text-[#111827]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function CheckItem({ text }: { text: string }) {
+  return (
+    <div className="flex gap-2">
+      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#5eead4]" />
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function TabButton({
+  tab,
+  activeTab,
+  setActiveTab,
+}: {
+  tab: { id: TabId; label: string; icon: typeof BrainCircuit };
+  activeTab: TabId;
+  setActiveTab: (id: TabId) => void;
+}) {
+  const Icon = tab.icon;
+  const active = activeTab === tab.id;
+
+  return (
+    <button
+      onClick={() => setActiveTab(tab.id)}
+      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+        active
+          ? "bg-[#0f766e] text-white"
+          : "bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]"
+      }`}
+    >
+      <Icon size={17} />
+      {tab.label}
+    </button>
+  );
+}
+
+function WorkbenchPanel({
+  title,
+  description,
+  actionLabel,
+  isLoading,
+  onAction,
+  children,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  isLoading: boolean;
+  onAction: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[#64748b]">{description}</p>
+        </div>
+        <button
+          onClick={onAction}
+          disabled={isLoading}
+          className="flex items-center justify-center gap-2 rounded-lg bg-[#0f766e] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#115e59] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isLoading ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : (
+            <ArrowRight size={18} />
+          )}
+          {actionLabel}
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-[#cbd5e1] bg-[#f8fafc] p-8 text-center text-sm font-medium text-[#64748b]">
+      {text}
     </div>
   );
 }
@@ -239,13 +411,13 @@ function SourcesList({ sources }: { sources: string[] }) {
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950 p-4">
-      <p className="text-sm font-semibold text-slate-300">Retrieved sources</p>
+    <div className="mt-4 rounded-lg border border-[#dfe5ee] bg-[#f8fafc] p-4">
+      <p className="text-sm font-semibold text-[#334155]">Retrieved Sources</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {sources.slice(0, 16).map((source) => (
+        {sources.slice(0, 18).map((source) => (
           <span
             key={source}
-            className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-300"
+            className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-1 text-sm text-[#475569]"
           >
             {source}
           </span>
@@ -255,34 +427,9 @@ function SourcesList({ sources }: { sources: string[] }) {
   );
 }
 
-function TabButton({
-  label,
-  id,
-  activeTab,
-  setActiveTab,
-}: {
-  label: string;
-  id: string;
-  activeTab: string;
-  setActiveTab: (id: string) => void;
-}) {
-  return (
-    <button
-      onClick={() => setActiveTab(id)}
-      className={`rounded-xl px-5 py-3 font-semibold ${
-        activeTab === id
-          ? "bg-cyan-500 text-slate-950"
-          : "bg-slate-900 text-slate-300"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
 function MarkdownBlock({ content }: { content: string }) {
   return (
-    <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950 p-6 text-slate-200">
+    <div className="markdown-body mt-5 rounded-lg border border-[#dfe5ee] bg-white p-5 text-[#1f2937]">
       <ReactMarkdown>{content}</ReactMarkdown>
     </div>
   );

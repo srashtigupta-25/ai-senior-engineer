@@ -24,3 +24,65 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.markdown-body {
+  line-height: 1.7;
+}
+
+.markdown-body h2 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #dfe5ee;
+  padding-bottom: 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.markdown-body h2:first-child {
+  margin-top: 0;
+}
+
+.markdown-body p {
+  margin-bottom: 0.85rem;
+  color: #374151;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.75rem 0 1rem 1.25rem;
+  color: #374151;
+}
+
+.markdown-body li {
+  margin-bottom: 0.45rem;
+}
+
+.markdown-body code {
+  border: 1px solid #dfe5ee;
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 0.1rem 0.35rem;
+  color: #0f766e;
+  font-size: 0.92em;
+}
+
+.markdown-body pre {
+  margin: 1rem 0;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: #111827;
+  padding: 1rem;
+  color: #f8fafc;
+}
+
+.markdown-body pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.markdown-body strong {
+  color: #111827;
+}

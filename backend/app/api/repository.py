@@ -48,7 +48,7 @@ def clone_repo(payload: dict):
             embeddings
         )
 
-        save_repository_state(
+        repository_state = save_repository_state(
             repo_info,
             files,
             len(chunks)
@@ -58,6 +58,7 @@ def clone_repo(payload: dict):
             "repository": repo_info,
             "files": len(files),
             "chunks": len(chunks),
+            "repository_type": repository_state["detected_repository_type"],
             "status": "indexed"
         }
     except Exception as error:
