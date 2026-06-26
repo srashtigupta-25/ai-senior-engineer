@@ -199,6 +199,9 @@ def build_framework_architecture_report(repository_facts: dict):
     ]
     flow_lines = framework_flow_lines(is_flask_repo)
     entry_lines = framework_entry_lines(is_flask_repo)
+    storage_lines = framework_storage_lines(is_flask_repo)
+    configuration_lines = framework_configuration_lines(is_flask_repo)
+    risk_lines = framework_risk_lines(is_flask_repo)
 
     return "\n".join(
         [
@@ -219,16 +222,13 @@ def build_framework_architecture_report(repository_facts: dict):
             *flow_lines,
             "",
             "## Storage And External Integrations",
-            "- No application database or persistent domain storage is implied by this repository type.",
-            "- Integrations should be described as framework extension points unless exact storage or service files are indexed.",
+            *storage_lines,
             "",
             "## Configuration And Runtime",
-            "- Configuration belongs to the framework APIs and package metadata visible in the indexed files.",
-            "- Do not run a source file such as `src/flask/app.py` as an application; it is framework implementation code.",
+            *configuration_lines,
             "",
             "## Risks Or Unknowns",
-            "- Exact developer setup commands should come from README, pyproject metadata, or contributor documentation.",
-            "- Human review is still useful for nuanced behavior such as context lifetimes, async support, extension compatibility, and backwards compatibility.",
+            *risk_lines,
             "",
             "## Confidence",
             "High for repository classification and high-level architecture because the report is generated from indexed repository metadata and exact source paths.",
@@ -313,7 +313,7 @@ def build_framework_onboarding_guide(repository_facts: dict):
             "",
             "## Local Setup",
             "- Use the repository's README, pyproject metadata, or contributor documentation for exact install and test commands.",
-            "- Do not run framework implementation files such as `src/flask/app.py` as an application entry point.",
+            *framework_setup_warning_lines(is_flask_repo),
             "- After setup, run the repository's test command from documented project metadata or contributor docs.",
             "",
             "## Mental Model",
@@ -451,6 +451,56 @@ def framework_common_task_lines(is_flask_repo: bool):
         "- Update client, model, config, or transport internals and add matching regression tests under `tests/`.",
         "- Investigate send-flow behavior by starting from the client module, request/response model module, and transport modules.",
         "- Preserve public API compatibility and sync/async behavior when changing internals used by downstream applications.",
+    ]
+
+
+def framework_storage_lines(is_flask_repo: bool):
+    if is_flask_repo:
+        return [
+            "- No application database or persistent domain storage is implied by this repository type.",
+            "- Integrations should be described as framework extension points unless exact storage or service files are indexed.",
+        ]
+
+    return [
+        "- No application database or persistent domain storage is implied by this repository type.",
+        "- External integration happens through library boundaries such as network transports, configuration objects, and public APIs unless exact storage/service files are indexed.",
+    ]
+
+
+def framework_configuration_lines(is_flask_repo: bool):
+    if is_flask_repo:
+        return [
+            "- Configuration belongs to the framework APIs and package metadata visible in the indexed files.",
+            "- Do not run a source file such as `src/flask/app.py` as an application; it is framework implementation code.",
+        ]
+
+    return [
+        "- Configuration belongs to package metadata, config models, client options, and transport settings visible in the indexed files.",
+        "- Do not run library implementation files as application entry points unless documented by the repository.",
+    ]
+
+
+def framework_risk_lines(is_flask_repo: bool):
+    if is_flask_repo:
+        return [
+            "- Exact developer setup commands should come from README, pyproject metadata, or contributor documentation.",
+            "- Human review is still useful for nuanced behavior such as context lifetimes, async support, extension compatibility, and backwards compatibility.",
+        ]
+
+    return [
+        "- Exact developer setup commands should come from README, pyproject metadata, or contributor documentation.",
+        "- Human review is still useful for nuanced behavior such as sync/async parity, transport behavior, streaming, redirects, authentication, timeout handling, and public API compatibility.",
+    ]
+
+
+def framework_setup_warning_lines(is_flask_repo: bool):
+    if is_flask_repo:
+        return [
+            "- Do not run framework implementation files such as `src/flask/app.py` as an application entry point.",
+        ]
+
+    return [
+        "- Do not run library implementation files as application entry points unless the repository documents a CLI or module command.",
     ]
 
 

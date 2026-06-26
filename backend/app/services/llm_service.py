@@ -340,7 +340,11 @@ def correct_httpx_language(answer, repository_facts):
         r"httpx/transport\.py": "httpx/_transports/base.py and httpx/_transports/default.py",
         r"httpx/request\.py": "httpx/_models.py",
         r"httpx/response\.py": "httpx/_models.py",
+        r"(?<![\w/.-])_request\.py(?![\w/.-])": "httpx/_models.py",
+        r"(?<![\w/.-])_response\.py(?![\w/.-])": "httpx/_models.py",
         r"httpx\.Transport": "httpx transport classes",
+        r"(?<![\w/.-])_request: This is a private method used by the client to construct and send requests\.": "Client send methods in httpx/_client.py coordinate request construction with models from httpx/_models.py and transports from httpx/_transports/.",
+        r"This is a private method used by the client to construct and send requests\.": "Request construction and sending are implemented through client methods in httpx/_client.py and request/response models in httpx/_models.py.",
         r"The transport layer will send the request over the network using the underlying protocol \(e\.g\., TCP/IP\)\.": "The selected transport implements the sync or async network I/O and returns a response model.",
     }
 
