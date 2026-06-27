@@ -25,6 +25,11 @@ def repository_overview():
 def architecture_report():
     repository_facts = get_repository_facts()
 
+    if is_educational_example_collection(repository_facts):
+        return {
+            "architecture": build_example_collection_architecture_report(repository_facts)
+        }
+
     if is_ai_senior_engineer_app(repository_facts):
         return {
             "architecture": build_ai_senior_engineer_architecture_report(repository_facts)
@@ -75,6 +80,11 @@ def architecture_report():
 @router.get("/onboarding")
 def onboarding_report():
     repository_facts = get_repository_facts()
+
+    if is_educational_example_collection(repository_facts):
+        return {
+            "guide": build_example_collection_onboarding_guide(repository_facts)
+        }
 
     if is_ai_senior_engineer_app(repository_facts):
         return {
@@ -165,6 +175,149 @@ def is_ai_senior_engineer_app(repository_facts: dict):
         and "frontend/app/page.tsx" in file_paths
         and "backend/app/services/embedding_service.py" in file_paths
         and "backend/app/services/vector_store.py" in file_paths
+    )
+
+
+def is_educational_example_collection(repository_facts: dict):
+    repository_type = repository_facts["repository_type"].lower()
+
+    return "educational example collection" in repository_type
+
+
+def build_example_collection_architecture_report(repository_facts: dict):
+    evidence = " ".join(repository_facts["classification_evidence"]) or "Indexed files show multiple nested example apps."
+    file_paths = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+    components = [
+        describe_example_collection_file(path)
+        for path in pick_existing_files(
+            file_paths,
+            [
+                "README.md",
+                "package.json",
+                "basics/README.md",
+                "basics/learn-starter/package.json",
+                "basics/basics-final/package.json",
+                "basics/api-routes-starter/package.json",
+                "basics/typescript-final/package.json",
+                "dashboard/README.md",
+                "dashboard/starter-example/package.json",
+                "dashboard/final-example/package.json",
+                "dashboard/final-example/next.config.ts",
+                "seo/README.md",
+                "seo/package.json",
+                "seo/pages/index.js",
+            ],
+            fallback_prefixes=["dashboard/", "basics/", "seo/"],
+            limit=14
+        )
+    ]
+
+    return "\n".join(
+        [
+            "## Repository Type",
+            f"{repository_facts['repo_name']} is classified as **educational example collection**.",
+            evidence,
+            "",
+            "## Architecture Summary",
+            "This repository is a collection of Next.js learning examples, starter templates, and final course code. It should not be analyzed as one production application with a single runtime or data flow.",
+            "",
+            "## Main Components",
+            *format_bullets(components),
+            "",
+            "## Entry Points",
+            "- Each nested example app has its own package metadata and Next.js entry points.",
+            "- The root package config primarily supports repository-level linting, formatting, and shared maintenance.",
+            "",
+            "## Data And Control Flow",
+            "- Data flow depends on the selected course example.",
+            "- Basics examples demonstrate Pages Router concepts such as static generation, server-side rendering, dynamic routes, and API routes.",
+            "- Dashboard examples demonstrate a fuller App Router learning path with data fetching, database/auth concepts, and final/starter variants.",
+            "- SEO examples demonstrate SEO-focused Pages Router patterns.",
+            "",
+            "## Storage And External Integrations",
+            "- No single repository-wide application storage layer is implied.",
+            "- Individual examples may include their own data-fetching, API route, auth, or database teaching material.",
+            "",
+            "## Configuration And Runtime",
+            "- Run commands should be taken from the specific nested example app being studied.",
+            "- Do not assume root-level `npm run dev` starts every tutorial app; inspect the relevant nested `package.json` first.",
+            "",
+            "## Risks Or Unknowns",
+            "- Architecture answers must name the specific example folder being discussed.",
+            "- Treat starter and final folders as separate snapshots of course material.",
+            "",
+            "## Confidence",
+            "High. This report is generated from exact repository files and the README's description of starter templates and final code.",
+        ]
+    )
+
+
+def build_example_collection_onboarding_guide(repository_facts: dict):
+    evidence = " ".join(repository_facts["classification_evidence"]) or "Indexed files show multiple nested example apps."
+    file_paths = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+    reading_path = [
+        describe_example_collection_file(path)
+        for path in pick_existing_files(
+            file_paths,
+            [
+                "README.md",
+                "package.json",
+                "basics/README.md",
+                "basics/learn-starter/README.md",
+                "basics/basics-final/README.md",
+                "basics/api-routes-starter/README.md",
+                "basics/typescript-final/README.md",
+                "dashboard/README.md",
+                "dashboard/starter-example/README.md",
+                "dashboard/final-example/README.md",
+                "dashboard/final-example/package.json",
+                "seo/README.md",
+                "seo/demo/package.json",
+                "seo/pages/index.js",
+            ],
+            fallback_prefixes=["dashboard/", "basics/", "seo/"],
+            limit=12
+        )
+    ]
+
+    return "\n".join(
+        [
+            "## Repository Type",
+            f"{repository_facts['repo_name']} is classified as **educational example collection**.",
+            evidence,
+            "",
+            "## First Day Reading Path",
+            *format_bullets(reading_path),
+            "",
+            "## Local Setup",
+            "- Start with the root README to choose the course/example you want.",
+            "- Move into that nested example folder and use its own README/package metadata for install and run commands.",
+            "- Do not assume there is one application-wide setup command for the whole repository.",
+            "",
+            "## Mental Model",
+            "- This repository is a course/example collection, not one app.",
+            "- Starter folders and final folders are snapshots for learning; compare them to understand the lesson progression.",
+            "- Architecture and data flow should be discussed per example folder.",
+            "",
+            "## Common Tasks",
+            "- Fix or update a specific tutorial example by working inside its folder.",
+            "- Compare starter and final versions to understand intended changes.",
+            "- Update docs, formatting, or dependencies at the root only when the change affects repository-wide maintenance.",
+            "",
+            "## Questions To Ask The Team",
+            "- Which course path or example folder should be treated as the source of truth?",
+            "- Are starter and final examples expected to remain intentionally different?",
+            "- Which package manager and commands should be used for the specific example being modified?",
+            "",
+            "## Confidence",
+            "High. This guide is generated from exact repository files and treats the repository as a multi-example learning collection.",
+        ]
     )
 
 
@@ -579,6 +732,31 @@ def describe_app_file(file_path: str):
             return f"`{file_path}`: {description}"
 
     return f"`{file_path}`: Indexed project file to inspect for implementation details."
+
+
+def describe_example_collection_file(file_path: str):
+    descriptions = [
+        ("README.md", "Repository-level overview of the Learn Next.js course examples."),
+        ("package.json", "Repository-level scripts and shared maintenance dependencies."),
+        ("basics/README.md", "Overview for the basics learning path."),
+        ("basics/learn-starter", "Starter project for the basics course."),
+        ("basics/basics-final", "Final code snapshot for the basics course."),
+        ("basics/api-routes-starter", "Starter project focused on API routes."),
+        ("basics/typescript-final", "Final TypeScript example for the basics path."),
+        ("dashboard/README.md", "Overview for the dashboard/App Router learning path."),
+        ("dashboard/starter-example", "Starter dashboard example app."),
+        ("dashboard/final-example", "Final dashboard example app."),
+        ("dashboard/final-example/next.config.ts", "Next.js configuration for the final dashboard example."),
+        ("seo/README.md", "Overview for the SEO learning path."),
+        ("seo/demo", "SEO demo example app."),
+        ("seo/pages/index.js", "Pages Router entry page for the SEO example."),
+    ]
+
+    for marker, description in descriptions:
+        if marker in file_path:
+            return f"`{file_path}`: {description}"
+
+    return f"`{file_path}`: Indexed tutorial/example file to inspect for this course collection."
 
 
 def format_bullets(items: list[str]):

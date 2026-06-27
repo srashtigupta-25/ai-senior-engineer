@@ -254,6 +254,15 @@ def build_search_queries(question: str):
             ]
         )
 
+    if "educational example collection" in repository_facts["repository_type"].lower() or repo_name.lower() == "next-learn":
+        queries.extend(
+            [
+                "README Learn Next.js starter templates final code courses basics dashboard seo",
+                "basics dashboard seo package README starter final example Next.js",
+                "course examples starter final app router pages router api routes data fetching",
+            ]
+        )
+
     if question_needs_tests(question):
         queries.append("tests fixtures assertions integration unit")
 

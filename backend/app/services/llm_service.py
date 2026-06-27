@@ -167,6 +167,10 @@ def sanitize_answer(answer, repository_facts):
         cleaned_answer,
         repository_facts
     )
+    cleaned_answer = correct_example_collection_language(
+        cleaned_answer,
+        repository_facts
+    )
 
     repository_type_section = build_repository_type_section(repository_facts)
 
@@ -439,6 +443,47 @@ def remove_stale_repository_claims(answer, repository_facts):
                 cleaned_answer,
                 flags=re.IGNORECASE | re.MULTILINE
             )
+
+    return cleaned_answer
+
+
+def correct_example_collection_language(answer, repository_facts):
+    if "educational example collection" not in repository_facts["repository_type"].lower():
+        return answer
+
+    cleaned_answer = answer
+    bad_line_patterns = [
+        r"^.*src/index\.js.*(?:\n|$)",
+        r"^.*one application.*(?:\n|$)",
+        r"^.*single application.*(?:\n|$)",
+        r"^.*main entry point for the application.*(?:\n|$)",
+        r"^.*application's core logic is implemented in JavaScript files.*(?:\n|$)",
+        r"^.*Clone the repository using git clone https://github\.com/your-username/project-name\.git.*(?:\n|$)",
+    ]
+
+    for pattern in bad_line_patterns:
+        cleaned_answer = re.sub(
+            pattern,
+            "",
+            cleaned_answer,
+            flags=re.IGNORECASE | re.MULTILINE
+        )
+
+    replacements = {
+        r"This appears to be a Next\.js repository": "This is an educational Next.js example collection",
+        r"The architecture of this app": "The architecture of this example collection",
+        r"this app": "this example collection",
+        r"The main entry point is the pages directory": "Each nested example has its own entry points",
+        r"pages/index\.js": "the relevant example's page files",
+        r"npm run dev \(or yarn dev\) to start the application": "use the selected nested example's README/package scripts to start that example",
+    }
+
+    for pattern, replacement in replacements.items():
+        cleaned_answer = re.sub(
+            pattern,
+            replacement,
+            cleaned_answer,
+        )
 
     return cleaned_answer
 

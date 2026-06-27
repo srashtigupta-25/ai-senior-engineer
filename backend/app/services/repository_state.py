@@ -166,6 +166,15 @@ def classify_repository(files: list[dict[str, Any]]):
         ]
     ).lower()
 
+    has_tutorial_collection = (
+        any(token in combined_metadata for token in ["learn next.js", "starter templates", "final code", "courses", "tutorial"])
+        and sum(1 for path in paths if path.endswith("/package.json")) >= 3
+    )
+
+    if has_tutorial_collection:
+        evidence.append("Repository README describes starter templates/final code for courses and contains multiple nested package.json files.")
+        return "educational example collection", evidence
+
     has_nested_frontend = (
         "frontend/package.json" in paths
         and any(path.startswith("frontend/app/") or path.startswith("frontend/pages/") or path.startswith("frontend/src/") for path in paths)
