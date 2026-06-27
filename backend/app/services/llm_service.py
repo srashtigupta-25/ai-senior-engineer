@@ -163,6 +163,10 @@ def sanitize_answer(answer, repository_facts):
         cleaned_answer,
         repository_facts
     )
+    cleaned_answer = remove_stale_repository_claims(
+        cleaned_answer,
+        repository_facts
+    )
 
     repository_type_section = build_repository_type_section(repository_facts)
 
@@ -391,6 +395,50 @@ def remove_unindexed_framework_file_claims(answer, repository_facts):
             cleaned_answer,
             flags=re.IGNORECASE | re.MULTILINE
         )
+
+    return cleaned_answer
+
+
+def remove_stale_repository_claims(answer, repository_facts):
+    indexed_files = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+    stale_prefixes = []
+
+    if not any(path.startswith("src/flask/") for path in indexed_files):
+        stale_prefixes.append("src/flask/")
+
+    if not any(path.startswith("httpx/") for path in indexed_files):
+        stale_prefixes.append("httpx/")
+
+    cleaned_answer = answer
+
+    for prefix in stale_prefixes:
+        cleaned_answer = re.sub(
+            rf"^.*{re.escape(prefix)}.*(?:\n|$)",
+            "",
+            cleaned_answer,
+            flags=re.IGNORECASE | re.MULTILINE
+        )
+
+    stale_phrases = [
+        "Flask-like framework",
+        "Flask framework",
+        "HTTP client library",
+        "WSGI requests",
+        "URL maps",
+        "request/response models",
+    ]
+
+    for phrase in stale_phrases:
+        if phrase.lower() in cleaned_answer.lower() and repository_facts["repo_name"] not in {"flask", "httpx"}:
+            cleaned_answer = re.sub(
+                rf"^.*{re.escape(phrase)}.*(?:\n|$)",
+                "",
+                cleaned_answer,
+                flags=re.IGNORECASE | re.MULTILINE
+            )
 
     return cleaned_answer
 

@@ -244,6 +244,16 @@ def build_search_queries(question: str):
             ]
         )
 
+    if repo_name.lower() == "ai-senior-engineer" or "repository" in lowered_question and "answer" in lowered_question:
+        queries.extend(
+            [
+                "backend repository clone load files chunk documents create embeddings chromadb store chunks",
+                "backend search repository vector store retrieve context generate answer ollama",
+                "backend api repository chat analysis endpoints FastAPI",
+                "frontend page indexRepository askRepository getArchitecture getOnboarding api client",
+            ]
+        )
+
     if question_needs_tests(question):
         queries.append("tests fixtures assertions integration unit")
 

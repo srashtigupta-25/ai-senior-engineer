@@ -25,6 +25,11 @@ def repository_overview():
 def architecture_report():
     repository_facts = get_repository_facts()
 
+    if is_ai_senior_engineer_app(repository_facts):
+        return {
+            "architecture": build_ai_senior_engineer_architecture_report(repository_facts)
+        }
+
     if is_framework_or_library(repository_facts):
         return {
             "architecture": build_framework_architecture_report(repository_facts)
@@ -70,6 +75,11 @@ def architecture_report():
 @router.get("/onboarding")
 def onboarding_report():
     repository_facts = get_repository_facts()
+
+    if is_ai_senior_engineer_app(repository_facts):
+        return {
+            "guide": build_ai_senior_engineer_onboarding_guide(repository_facts)
+        }
 
     if is_framework_or_library(repository_facts):
         return {
@@ -142,6 +152,165 @@ def is_framework_or_library(repository_facts: dict):
     repository_type = repository_facts["repository_type"].lower()
 
     return "framework" in repository_type or "library" in repository_type
+
+
+def is_ai_senior_engineer_app(repository_facts: dict):
+    file_paths = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+
+    return (
+        "backend/app/main.py" in file_paths
+        and "frontend/app/page.tsx" in file_paths
+        and "backend/app/services/embedding_service.py" in file_paths
+        and "backend/app/services/vector_store.py" in file_paths
+    )
+
+
+def build_ai_senior_engineer_architecture_report(repository_facts: dict):
+    evidence = " ".join(repository_facts["classification_evidence"]) or "Indexed files show a nested FastAPI backend and Next.js frontend."
+    file_paths = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+    components = [
+        describe_app_file(path)
+        for path in pick_existing_files(
+            file_paths,
+            [
+                "README.md",
+                "backend/app/main.py",
+                "backend/app/api/repository.py",
+                "backend/app/api/chat.py",
+                "backend/app/api/analysis.py",
+                "backend/app/services/repository_service.py",
+                "backend/app/services/file_loader.py",
+                "backend/app/services/chunk_service.py",
+                "backend/app/services/embedding_service.py",
+                "backend/app/services/vector_store.py",
+                "backend/app/services/search_service.py",
+                "backend/app/services/llm_service.py",
+                "backend/app/services/repository_state.py",
+                "frontend/app/page.tsx",
+                "frontend/lib/api.ts",
+            ],
+            fallback_prefixes=["backend/app/", "frontend/app/", "frontend/lib/"],
+            limit=14
+        )
+    ]
+
+    return "\n".join(
+        [
+            "## Repository Type",
+            f"{repository_facts['repo_name']} is classified as **full-stack AI code-analysis app**.",
+            evidence,
+            "",
+            "## Architecture Summary",
+            "This project is a local full-stack codebase intelligence tool. The Next.js frontend lets a user submit a GitHub repository and request Q&A, architecture, or onboarding reports. The FastAPI backend clones the repository, loads files, chunks source text, embeds chunks, stores vectors in ChromaDB, retrieves relevant context, and sends grounded prompts to Ollama.",
+            "",
+            "## Main Components",
+            *format_bullets(components),
+            "",
+            "## Entry Points",
+            "- `backend/app/main.py`: FastAPI application setup, CORS, and router registration.",
+            "- `frontend/app/page.tsx`: Main browser UI and user workflow.",
+            "- `frontend/lib/api.ts`: Axios API client used by the frontend.",
+            "",
+            "## Data And Control Flow",
+            "- The user enters a GitHub URL in the frontend and calls `POST /repository/clone`.",
+            "- The backend clones the repo, loads supported files, chunks source text, embeds chunks, resets/stores ChromaDB vectors, and saves repository metadata.",
+            "- Ask/analysis endpoints retrieve relevant chunks from ChromaDB and combine them with the repository profile.",
+            "- `backend/app/services/llm_service.py` sends the grounded prompt to Ollama and post-processes the response.",
+            "- The frontend renders the Markdown answer and retrieved source list.",
+            "",
+            "## Storage And External Integrations",
+            "- GitHub is the source of repositories to clone.",
+            "- ChromaDB stores local vector embeddings for the active indexed repository.",
+            "- SentenceTransformers creates embeddings.",
+            "- Ollama generates answers from retrieved repository context.",
+            "",
+            "## Configuration And Runtime",
+            "- Backend runtime is FastAPI/Uvicorn from `backend/app/main.py`.",
+            "- Frontend runtime is Next.js from `frontend/app/page.tsx`.",
+            "- `OLLAMA_URL` and `OLLAMA_MODEL` can configure the local model endpoint.",
+            "",
+            "## Risks Or Unknowns",
+            "- Only one active repository context is intended at a time.",
+            "- Answer quality depends on retrieval quality, indexed file coverage, and the local Ollama model.",
+            "- Repo isolation and re-indexing are important when switching repositories.",
+            "",
+            "## Confidence",
+            "High. This report is generated from exact project files and does not rely on stale Flask or HTTPX context.",
+        ]
+    )
+
+
+def build_ai_senior_engineer_onboarding_guide(repository_facts: dict):
+    evidence = " ".join(repository_facts["classification_evidence"]) or "Indexed files show a nested FastAPI backend and Next.js frontend."
+    file_paths = {
+        file.get("file_path", "")
+        for file in repository_facts["files"]
+    }
+    reading_path = [
+        describe_app_file(path)
+        for path in pick_existing_files(
+            file_paths,
+            [
+                "README.md",
+                "backend/app/main.py",
+                "backend/app/api/repository.py",
+                "backend/app/api/chat.py",
+                "backend/app/api/analysis.py",
+                "backend/app/services/repository_service.py",
+                "backend/app/services/file_loader.py",
+                "backend/app/services/chunk_service.py",
+                "backend/app/services/embedding_service.py",
+                "backend/app/services/vector_store.py",
+                "backend/app/services/search_service.py",
+                "backend/app/services/llm_service.py",
+                "frontend/app/page.tsx",
+                "frontend/lib/api.ts",
+            ],
+            fallback_prefixes=["backend/app/", "frontend/app/", "frontend/lib/"],
+            limit=12
+        )
+    ]
+
+    return "\n".join(
+        [
+            "## Repository Type",
+            f"{repository_facts['repo_name']} is classified as **full-stack AI code-analysis app**.",
+            evidence,
+            "",
+            "## First Day Reading Path",
+            *format_bullets(reading_path),
+            "",
+            "## Local Setup",
+            "- Start the backend with Uvicorn from the `backend/` directory.",
+            "- Start the frontend with Next.js from the `frontend/` directory.",
+            "- Keep Ollama running locally and re-index a repository after backend changes.",
+            "",
+            "## Mental Model",
+            "- The frontend is a workbench for repository indexing, Q&A, architecture, and onboarding reports.",
+            "- The backend owns cloning, file loading, chunking, embeddings, vector storage, retrieval, repository profiling, and Ollama prompting.",
+            "- ChromaDB contains the active repository's chunks; switching repositories should re-index and replace the active context.",
+            "",
+            "## Common Tasks",
+            "- Improve retrieval by editing `backend/app/api/chat.py`, `backend/app/services/search_service.py`, or vector metadata.",
+            "- Improve report quality by editing `backend/app/services/llm_service.py` or deterministic report builders in `backend/app/api/analysis.py`.",
+            "- Improve indexing by editing loader, chunker, embedding, or repository state services.",
+            "- Improve product UX in `frontend/app/page.tsx` and API calls in `frontend/lib/api.ts`.",
+            "",
+            "## Questions To Ask The Team",
+            "- Should the app support multiple indexed repositories at once or only one active repository?",
+            "- Which model should be the default for higher-quality code analysis?",
+            "- What repository sizes and languages should be supported for demo or production use?",
+            "",
+            "## Confidence",
+            "High. This guide is generated from exact files in this repository.",
+        ]
+    )
 
 
 def build_framework_architecture_report(repository_facts: dict):
@@ -384,6 +553,32 @@ def describe_file(file_path: str):
             return f"`{file_path}`: {description}"
 
     return f"`{file_path}`: Indexed source file to inspect for implementation details."
+
+
+def describe_app_file(file_path: str):
+    descriptions = [
+        ("README.md", "Project overview, setup, API endpoints, and pipeline explanation."),
+        ("backend/app/main.py", "FastAPI app setup, CORS configuration, and router registration."),
+        ("backend/app/api/repository.py", "Repository indexing endpoint that clones, loads, chunks, embeds, stores, and profiles a repo."),
+        ("backend/app/api/chat.py", "Question-answering endpoint, retrieval query expansion, context building, and source selection."),
+        ("backend/app/api/analysis.py", "Architecture and onboarding report endpoints, including deterministic report builders."),
+        ("backend/app/services/repository_service.py", "GitHub URL validation and repository cloning."),
+        ("backend/app/services/file_loader.py", "Supported file discovery, text loading, language detection, and symbol extraction."),
+        ("backend/app/services/chunk_service.py", "Line-aware code chunking with source ranges."),
+        ("backend/app/services/embedding_service.py", "SentenceTransformer embedding generation."),
+        ("backend/app/services/vector_store.py", "ChromaDB chunk storage and metadata persistence."),
+        ("backend/app/services/search_service.py", "Vector search for the active indexed repository."),
+        ("backend/app/services/llm_service.py", "Ollama prompting and answer post-processing."),
+        ("backend/app/services/repository_state.py", "Saved repository profile, classification, source roots, and file map."),
+        ("frontend/app/page.tsx", "Main Next.js workbench UI for indexing, asking, and report generation."),
+        ("frontend/lib/api.ts", "Frontend API client for FastAPI endpoints."),
+    ]
+
+    for marker, description in descriptions:
+        if marker == file_path:
+            return f"`{file_path}`: {description}"
+
+    return f"`{file_path}`: Indexed project file to inspect for implementation details."
 
 
 def format_bullets(items: list[str]):

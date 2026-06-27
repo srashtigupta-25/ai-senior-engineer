@@ -45,7 +45,8 @@ def clone_repo(payload: dict):
 
         store_chunks(
             chunks,
-            embeddings
+            embeddings,
+            repo_info["repo_name"]
         )
 
         repository_state = save_repository_state(

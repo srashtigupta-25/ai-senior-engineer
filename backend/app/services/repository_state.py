@@ -166,6 +166,27 @@ def classify_repository(files: list[dict[str, Any]]):
         ]
     ).lower()
 
+    has_nested_frontend = (
+        "frontend/package.json" in paths
+        and any(path.startswith("frontend/app/") or path.startswith("frontend/pages/") or path.startswith("frontend/src/") for path in paths)
+    )
+
+    has_nested_backend = any(
+        marker in paths
+        for marker in ["backend/app/main.py", "backend/main.py", "backend/app.py"]
+    ) or (
+        "backend/requirements.txt" in paths
+        and any(path.startswith("backend/app/api/") or path.startswith("backend/app/services/") for path in paths)
+    )
+
+    if has_nested_frontend and has_nested_backend:
+        if any(token in combined_metadata for token in ["repository", "embedding", "chroma", "ollama", "codebase", "ai senior engineer"]):
+            evidence.append("Repository has nested frontend and backend apps plus AI/codebase analysis dependencies or documentation.")
+            return "full-stack AI code-analysis app", evidence
+
+        evidence.append("Repository has nested frontend and backend applications.")
+        return "full-stack app", evidence
+
     if "framework :: flask" in combined_metadata or "web framework" in combined_metadata and "flask" in combined_metadata:
         evidence.append("Metadata or README describes the project as a web framework.")
         return "framework/library", evidence
@@ -179,13 +200,13 @@ def classify_repository(files: list[dict[str, Any]]):
         return "library", evidence
 
     has_frontend = any(
-        path.startswith(("app/", "pages/", "components/", "src/app/", "src/pages/", "src/components/"))
+        path.startswith(("app/", "pages/", "components/", "src/app/", "src/pages/", "src/components/", "frontend/app/", "frontend/pages/", "frontend/src/"))
         for path in paths
-    ) and "package.json" in paths
+    ) and ("package.json" in paths or "frontend/package.json" in paths)
 
     has_backend = any(
         marker in paths
-        for marker in ["main.py", "app/main.py", "src/main.py"]
+        for marker in ["main.py", "app/main.py", "src/main.py", "backend/app/main.py", "backend/main.py"]
     ) or any(
         token in combined_metadata
         for token in ["fastapi", "flask", "django", "uvicorn"]

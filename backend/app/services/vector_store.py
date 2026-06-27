@@ -29,7 +29,7 @@ def reset_collection():
     )
 
 
-def store_chunks(chunks, embeddings):
+def store_chunks(chunks, embeddings, repo_name: str):
     collection = get_collection()
 
     ids = []
@@ -50,7 +50,8 @@ def store_chunks(chunks, embeddings):
                 "language": chunk.get("language", ""),
                 "start_line": chunk.get("start_line", 1),
                 "end_line": chunk.get("end_line", 1),
-                "symbols": ", ".join(chunk.get("symbols", [])[:20])
+                "symbols": ", ".join(chunk.get("symbols", [])[:20]),
+                "repo_name": repo_name
             }
         )
 
